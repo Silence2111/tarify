@@ -1,0 +1,144 @@
+// Модель данных MVP-агрегатора тарифов.
+// Ядро: «тариф» (Provider -> Plan -> PlanOption) + адресный слой (City/Street/Building)
+// + матрица покрытия (Coverage) + воронка денег (Lead).
+// Ядро «тариф» переиспользуется при пивоте в B2B-конструктор тарифов.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // рантайм: pooled-строка (Neon -pooler)
+  directUrl = env("DIRECT_URL") // миграции/db push: прямое подключение
+}
+
+enum ServiceType {
+  INTERNET
+  TV
+  MOBILE
+  BUNDLE
+}
+
+enum LeadStatus {
+  NEW       // заявка пришла
+  CALLED    // дозвонились / в работе
+  CONFIRMED // подтверждённое подключение (за это платит провайдер)
+  REJECTED  // отвал (нет техвозможности / отказ / недозвон)
+}
+
+model Provider {
+  id        String     @id @default(cuid())
+  slug      String     @unique
+  name      String
+  logoUrl   String?
+  phone     String?
+  // CPA-ставка, которую провайдер платит за подтверждённое подключение, ₽.
+  // Хранится для расчёта потенциального дохода с заявки.
+  payoutRub Int?
+  isActive  Boolean    @default(true)
+  plans     Plan[]
+  coverage  Coverage[]
+  createdAt DateTime   @default(now())
+}
+
+model Plan {
+  id           String       @id @default(cuid())
+  provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerId   String
+  name         String
+  type         ServiceType  @default(INTERNET)
+  speedMbps    Int?
+  priceMonthly Int // ₽/мес, базовая цена
+  priceFirst   Int? // акция на первый месяц, ₽
+  hasTv        Boolean      @default(false)
+  tvChannels   Int?
+  hasMobile    Boolean      @default(false)
+  mobileGb     Int?
+  description  String?
+  options      PlanOption[]
+  leads        Lead[]
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  @@index([providerId])
+}
+
+// Гибкие опции тарифа (роутер в аренду, статический IP, антивирус и т.п.)
+model PlanOption {
+  id     String @id @default(cuid())
+  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planId String
+  label  String
+  value  String
+
+  @@index([planId])
+}
+
+model City {
+  id      String   @id @default(cuid())
+  slug    String   @unique
+  name    String
+  region  String?
+  streets Street[]
+}
+
+model Street {
+  id        String     @id @default(cuid())
+  city      City       @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId    String
+  slug      String
+  name      String
+  buildings Building[]
+
+  @@unique([cityId, slug])
+  @@index([cityId])
+}
+
+model Building {
+  id       String     @id @default(cuid())
+  street   Street     @relation(fields: [streetId], references: [id], onDelete: Cascade)
+  streetId String
+  house    String
+  fiasGuid String? // привязка к ФИАС/ГАР для будущей интеграции с DaData
+  coverage Coverage[]
+  leads    Lead[]
+
+  @@unique([streetId, house])
+  @@index([streetId])
+}
+
+// Ключевая сущность: какой провайдер обслуживает конкретный дом.
+// Готового API по РФ нет — эту матрицу мы строим и поддерживаем сами.
+model Coverage {
+  id         String   @id @default(cuid())
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  buildingId String
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerId String
+  techNote   String? // GPON / FTTB / ADSL ...
+  source     String? // из какого фида пришла запись (для атрибуции)
+  updatedAt  DateTime @updatedAt @default(now()) // свежесть: главная боль — держать покрытие актуальным
+
+  @@unique([buildingId, providerId])
+  @@index([providerId])
+}
+
+// Воронка денег: заявка на подключение.
+model Lead {
+  id          String     @id @default(cuid())
+  name        String
+  phone       String
+  addressText String
+  building    Building?  @relation(fields: [buildingId], references: [id])
+  buildingId  String?
+  plan        Plan?      @relation(fields: [planId], references: [id])
+  planId      String?
+  status      LeadStatus @default(NEW)
+  comment     String?
+  consent     Boolean    @default(false) // согласие на обработку ПДн (152-ФЗ)
+  createdAt   DateTime   @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}

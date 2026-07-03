@@ -1,0 +1,6 @@
+city,street,house,provider,provider_name,tech,payout,source
+Казань,улица Баумана,9,rostelecom,Ростелеком,GPON,2200,rostelecom-feed
+Казань,улица Баумана,9,letai,Летай (Таттелеком),FTTB,1000,letai-feed
+Казань,улица Спартаковская,5,domru,Дом.ру,FTTB,1500,domru-feed
+Альметьевск,улица Ленина,1,letai,Летай (Таттелеком),GPON,1000,letai-feed
+Альметьевск,улица Ленина,1,rostelecom,Ростелеком,GPON,2200,rostelecom-feed
