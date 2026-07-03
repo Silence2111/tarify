@@ -1,0 +1,5 @@
+city,street,house,provider,provider_name,tech,payout,source
+Казань,улица Баумана,10,rostelecom,Ростелеком,GPON,2200,rostelecom-admitad
+Казань,улица Баумана,10,domru,Дом.ру,FTTB,1500,domru-admitad
+Казань,улица Баумана,12,rostelecom,Ростелеком,GPON,2200,rostelecom-admitad
+Казань,улица Пушкина,5,mts,МТС,FTTB,1800,mts-admitad
