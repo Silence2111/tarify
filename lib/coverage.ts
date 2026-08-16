@@ -39,6 +39,54 @@ export type CoverageResult = {
 };
 
 // Главный запрос продукта: какие провайдеры доступны по адресу.
+
+/** Строка покрытия в том виде, в каком её отдаёт запрос выше. */
+export type CoverageRow = {
+  providerId: string;
+  techNote: string | null;
+  provider: {
+    id: string;
+    name: string;
+    slug: string;
+    isActive: boolean;
+    plans: Parameters<typeof toPlanView>[0][];
+  };
+};
+
+/**
+ * Свести покрытие к списку провайдеров.
+ *
+ * На улице один провайдер обычно покрывает много домов, и без дедупа он
+ * появился бы в выдаче столько раз, сколько домов попало в выборку.
+ *
+ * Отключённые провайдеры и провайдеры без активных тарифов отбрасываются:
+ * заявка на них не превращается в подключение, а лид, по которому не платят,
+ * хуже, чем отсутствие лида — он тратит доверие пользователя.
+ */
+export function groupByProvider(rows: CoverageRow[]): ProviderGroup[] {
+  const byProvider = new Map<string, ProviderGroup>();
+
+  for (const c of rows) {
+    if (!c.provider.isActive) continue;
+    const seen = byProvider.get(c.providerId);
+    if (seen) {
+      // Технология может отличаться от дома к дому. Оптика важнее для решения,
+      // чем «медь», поэтому упоминание оптики не теряем.
+      if (!seen.techNote && c.techNote) seen.techNote = c.techNote;
+      continue;
+    }
+    byProvider.set(c.providerId, {
+      providerId: c.provider.id,
+      providerName: c.provider.name,
+      providerSlug: c.provider.slug,
+      techNote: c.techNote,
+      plans: c.provider.plans.map(toPlanView),
+    });
+  }
+
+  return [...byProvider.values()].filter((g) => g.plans.length > 0);
+}
+
 export async function findCoverageByAddress(
   citySlug: string,
   streetQuery: string,
@@ -104,21 +152,7 @@ export async function findCoverageByAddress(
     },
   });
 
-  // Дедуп по провайдеру (на улице один провайдер может покрывать много домов).
-  const byProvider = new Map<string, ProviderGroup>();
-  for (const c of coverage) {
-    if (!c.provider.isActive) continue;
-    if (byProvider.has(c.providerId)) continue;
-    byProvider.set(c.providerId, {
-      providerId: c.provider.id,
-      providerName: c.provider.name,
-      providerSlug: c.provider.slug,
-      techNote: c.techNote,
-      plans: c.provider.plans.map(toPlanView),
-    });
-  }
-
-  const groups = [...byProvider.values()].filter((g) => g.plans.length > 0);
+  const groups = groupByProvider(coverage);
   return { matched, addressText, buildingId, groups };
 }
 
