@@ -31,6 +31,14 @@ function toPlanView(p: {
   };
 }
 
+// Единый подзапрос «активные тарифы с опциями, дешёвые сверху» — используется
+// во всех трёх выборках покрытия, чтобы выдача везде была одинаковой.
+const activePlansQuery = {
+  where: { isActive: true },
+  include: { options: true },
+  orderBy: { priceMonthly: "asc" as const },
+};
+
 export type CoverageResult = {
   matched: "building" | "street" | "none";
   addressText: string;
@@ -139,17 +147,7 @@ export async function findCoverageByAddress(
 
   const coverage = await prisma.coverage.findMany({
     where: { buildingId: { in: buildingIds } },
-    include: {
-      provider: {
-        include: {
-          plans: {
-            where: { isActive: true },
-            include: { options: true },
-            orderBy: { priceMonthly: "asc" },
-          },
-        },
-      },
-    },
+    include: { provider: { include: { plans: activePlansQuery } } },
   });
 
   const groups = groupByProvider(coverage);
@@ -176,17 +174,7 @@ export async function getStreetProviders(citySlug: string, streetSlug: string) {
     buildingIds.length > 0
       ? await prisma.coverage.findMany({
           where: { buildingId: { in: buildingIds } },
-          include: {
-            provider: {
-              include: {
-                plans: {
-                  where: { isActive: true },
-                  include: { options: true },
-                  orderBy: { priceMonthly: "asc" },
-                },
-              },
-            },
-          },
+          include: { provider: { include: { plans: activePlansQuery } } },
         })
       : [];
 
@@ -220,9 +208,7 @@ export async function getCityProviders(citySlug: string) {
       isActive: true,
       coverage: { some: { building: { street: { cityId: city.id } } } },
     },
-    include: {
-      plans: { where: { isActive: true }, include: { options: true }, orderBy: { priceMonthly: "asc" } },
-    },
+    include: { plans: activePlansQuery },
     orderBy: { name: "asc" },
   });
 

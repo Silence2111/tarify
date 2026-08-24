@@ -30,10 +30,6 @@ function getKey(): string | null {
   return key ? key : null;
 }
 
-export function isDaDataEnabled(): boolean {
-  return getKey() !== null;
-}
-
 // Подсказки улиц внутри города. Возвращает null, если DaData не настроена —
 // тогда вызывающий код берёт улицы из локальной БД.
 export async function suggestStreetsViaDaData(
