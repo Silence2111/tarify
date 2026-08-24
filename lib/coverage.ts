@@ -31,6 +31,14 @@ function toPlanView(p: {
   };
 }
 
+// Единый подзапрос «активные тарифы с опциями, дешёвые сверху» — используется
+// во всех трёх выборках покрытия, чтобы выдача везде была одинаковой.
+const activePlansQuery = {
+  where: { isActive: true },
+  include: { options: true },
+  orderBy: { priceMonthly: "asc" as const },
+};
+
 export type CoverageResult = {
   matched: "building" | "street" | "none";
   addressText: string;
@@ -139,17 +147,7 @@ export async function findCoverageByAddress(
 
   const coverage = await prisma.coverage.findMany({
     where: { buildingId: { in: buildingIds } },
-    include: {
-      provider: {
-        include: {
-          plans: {
-            where: { isActive: true },
-            include: { options: true },
-            orderBy: { priceMonthly: "asc" },
-          },
-        },
-      },
-    },
+    include: { provider: { include: { plans: activePlansQuery } } },
   });
 
   const groups = groupByProvider(coverage);
@@ -176,37 +174,21 @@ export async function getStreetProviders(citySlug: string, streetSlug: string) {
     buildingIds.length > 0
       ? await prisma.coverage.findMany({
           where: { buildingId: { in: buildingIds } },
-          include: {
-            provider: {
-              include: {
-                plans: {
-                  where: { isActive: true },
-                  include: { options: true },
-                  orderBy: { priceMonthly: "asc" },
-                },
-              },
-            },
-          },
+          include: { provider: { include: { plans: activePlansQuery } } },
         })
       : [];
 
-  const byProvider = new Map<string, ProviderGroup>();
-  for (const c of coverage) {
-    if (!c.provider.isActive || byProvider.has(c.providerId)) continue;
-    byProvider.set(c.providerId, {
-      providerId: c.provider.id,
-      providerName: c.provider.name,
-      providerSlug: c.provider.slug,
-      techNote: c.techNote,
-      plans: c.provider.plans.map(toPlanView),
-    });
-  }
+  // Через общий groupByProvider, а не инлайн-дедуп: инлайн брал первую строку
+  // покрытия и пропускал остальные (`byProvider.has(...)`), из-за чего пометка
+  // «оптика» терялась, если у первого дома улицы её не было. groupByProvider
+  // подтягивает techNote с любого дома — как в поиске по адресу.
+  const groups = groupByProvider(coverage);
 
   return {
     city,
     street,
     buildingCount: buildingIds.length,
-    groups: [...byProvider.values()].filter((g) => g.plans.length > 0),
+    groups,
   };
 }
 
@@ -220,9 +202,7 @@ export async function getCityProviders(citySlug: string) {
       isActive: true,
       coverage: { some: { building: { street: { cityId: city.id } } } },
     },
-    include: {
-      plans: { where: { isActive: true }, include: { options: true }, orderBy: { priceMonthly: "asc" } },
-    },
+    include: { plans: activePlansQuery },
     orderBy: { name: "asc" },
   });
 

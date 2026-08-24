@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE, sessionToken } from "@/lib/admin-auth";
+import { ADMIN_COOKIE, verifySession } from "@/lib/admin-auth";
 
 // Защищаем админку и admin-API. Открыты: сама страница логина и его API.
 // Под защитой: /admin/*, /api/admin/* и смена статуса заявки /api/leads/:id (PATCH).
@@ -11,9 +11,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const expected = await sessionToken();
+  // Сверка cookie постоянного времени (см. lib/admin-auth): без тайминг-утечки.
   const cookie = req.cookies.get(ADMIN_COOKIE)?.value;
-  if (cookie && cookie === expected) {
+  if (await verifySession(cookie)) {
     return NextResponse.next();
   }
 
