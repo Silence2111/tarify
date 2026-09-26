@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { formatRub, plural } from "@/lib/format";
 import { LeadStatusControl } from "@/components/LeadStatusControl";
 import { LogoutButton } from "@/components/LogoutButton";
+import { advice, funnel, visitsForRevenue } from "@/lib/unit-economics";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,15 @@ export default async function LeadsPage() {
   // Конверсия заявка → подключение (аппрув) — ключевая метрика юнит-экономики.
   const closable = counts.CONFIRMED + counts.REJECTED;
   const approval = closable > 0 ? Math.round((counts.CONFIRMED / closable) * 100) : null;
+
+  // Выручка и аппрув — про прошлое. Решение принимается по другому числу:
+  // сколько можно заплатить за заявку и за визит. Разбор — в lib/unit-economics.
+  const f = funnel({
+    confirmed: counts.CONFIRMED,
+    rejected: counts.REJECTED,
+    revenueRub: revenue,
+  });
+  const visitsFor100k = visitsForRevenue(100_000, f);
 
   return (
     <div>
@@ -84,6 +94,33 @@ export default async function LeadsPage() {
           value={approval === null ? "—" : `${approval}%`}
         />
         <Metric label="Выручка (подтверждённые)" value={formatRub(revenue)} highlight />
+      </div>
+
+      {/* Потолки трафика. Главное число дня: сколько можно платить. */}
+      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Сколько можно платить за трафик
+        </div>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <Metric label="Заявка приносит" value={formatRub(f.revenuePerLead)} />
+          <Metric label="Платить за заявку — до" value={formatRub(f.maxLeadCostRub)} highlight />
+          <Metric label="Платить за визит — до" value={`${f.maxVisitCostRub} ₽`} />
+          <Metric
+            label="Визитов на 100 000 ₽/мес"
+            value={Number.isFinite(visitsFor100k) ? visitsFor100k.toLocaleString("ru-RU") : "—"}
+          />
+        </div>
+        <p
+          className={`mt-3 text-sm ${
+            f.paidTraffic === "yes"
+              ? "text-slate-600"
+              : f.paidTraffic === "edge"
+                ? "text-amber-700"
+                : "text-red-700"
+          }`}
+        >
+          {advice(f)}
+        </p>
       </div>
 
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-400">
