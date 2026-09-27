@@ -16,7 +16,7 @@ export function PlanCard({
   const promo = plan.priceFirst != null && plan.priceFirst < plan.priceMonthly;
   return (
     <article className="card">
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0 flex-1">
           <h3 className="text-lg font-semibold text-ink">{plan.name}</h3>
           <div className="mt-2 flex flex-wrap gap-2">

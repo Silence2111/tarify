@@ -48,19 +48,22 @@ export default async function SearchPage({ params, searchParams }: Props) {
 
       <div className="mt-6">
         {result.groups.length === 0 ? (
-          <div className="grid gap-6 sm:grid-cols-[1fr_1.2fr] sm:items-start">
-            <div>
-              <h2 className="text-xl font-semibold text-ink">Этого адреса пока нет в базе</h2>
-              <p className="mt-2 text-ink-2">
-                В демо-базе только несколько улиц. Оставьте телефон — проверим адрес вручную
-                и перезвоним с вариантами. Или попробуйте другой адрес:
-              </p>
-              <div className="card mt-4">
-                <AddressSearch cities={[{ id: cityRow.id, slug: cityRow.slug, name: cityRow.name }]} />
+          <div className="grid gap-6">
+            <div className="grid gap-6 md:grid-cols-[1fr_1.2fr] md:items-start">
+              <div>
+                <h2 className="text-xl font-semibold text-ink">Этого адреса пока нет в базе</h2>
+                <p className="mt-2 text-ink-2">
+                  В демо-базе только несколько улиц Казани. Оставьте телефон — проверим адрес
+                  вручную и перезвоним с вариантами.
+                </p>
+              </div>
+              <div className="card">
+                <LeadForm addressText={result.addressText + (house ? `, д. ${house}` : "")} startOpen submitText="Подобрать вручную" />
               </div>
             </div>
             <div className="card">
-              <LeadForm addressText={result.addressText + (house ? `, д. ${house}` : "")} startOpen submitText="Подобрать вручную" />
+              <h2 className="mb-4 text-lg font-semibold text-ink">Или проверьте другой адрес</h2>
+              <AddressSearch cities={[{ id: cityRow.id, slug: cityRow.slug, name: cityRow.name }]} />
             </div>
           </div>
         ) : (

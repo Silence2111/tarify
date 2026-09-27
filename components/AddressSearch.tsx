@@ -99,7 +99,7 @@ export function AddressSearch({
 
   return (
     <div>
-      <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-[160px_1fr_110px_auto] sm:items-start">
+      <form onSubmit={submit} noValidate className="grid gap-4 md:grid-cols-[160px_1fr_110px_auto] md:items-start">
         <div>
           <label htmlFor={`${uid}-city`} className="label">Город</label>
           <select
@@ -164,7 +164,7 @@ export function AddressSearch({
           />
         </div>
 
-        <div className="sm:pt-[26px]">
+        <div className="md:pt-[26px]">
           <button type="submit" className="btn w-full" disabled={going}>
             {going ? "Ищем…" : "Показать тарифы"}
           </button>

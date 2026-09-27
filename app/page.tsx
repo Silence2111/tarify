@@ -46,12 +46,14 @@ export default async function HomePage() {
   };
 
   // Несколько настоящих адресов из базы — чтобы показ не упирался в угадывание улиц.
-  const sample = await prisma.building.findMany({
+  // По одному дому с трёх разных улиц.
+  const streetsWithHouses = await prisma.street.findMany({
     take: 3,
-    orderBy: [{ street: { name: "asc" } }, { house: "asc" }],
-    where: { coverage: { some: {} } },
-    select: { house: true, street: { select: { name: true } } },
+    orderBy: { name: "desc" },
+    where: { buildings: { some: { coverage: { some: {} } } } },
+    select: { name: true, buildings: { take: 1, orderBy: { house: "asc" }, where: { coverage: { some: {} } }, select: { house: true } } },
   });
+  const sample = streetsWithHouses.map((st) => ({ house: st.buildings[0].house, street: { name: st.name } }));
   const examples = sample.map((b) => ({ street: b.street.name, house: b.house }));
   const cityNames = cities.map((c) => c.name).join(", ");
 
