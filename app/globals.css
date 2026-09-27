@@ -2,12 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg: #f6f8fb;
+body {
+  background: #f4f5f7;
+  color: #171a20;
+  -webkit-font-smoothing: antialiased;
 }
 
-body {
-  background: var(--bg);
-  color: #1a2330;
-  -webkit-font-smoothing: antialiased;
+@layer components {
+  /* Одна главная кнопка на экране; цель нажатия от 44 px. */
+  .btn {
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-brand px-6 font-medium text-white shadow-cta transition-colors hover:bg-brand-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:bg-tint disabled:text-ink-3 disabled:shadow-none;
+  }
+  .btn-soft {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-brand-soft px-5 font-medium text-brand-text transition-colors hover:bg-[#e0e9ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+  }
+  .field {
+    @apply block min-h-[48px] w-full rounded-md2 border border-field bg-white px-4 text-base text-ink placeholder:text-ink-3 transition-colors hover:border-ink-3 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15 aria-[invalid=true]:border-err;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .field-error {
+    @apply mt-1.5 text-sm text-err;
+  }
+  .card {
+    @apply rounded-card bg-panel p-5 shadow-card sm:p-6;
+  }
+  .chip {
+    @apply inline-flex min-h-[44px] items-center rounded-full bg-panel px-4 text-sm text-ink shadow-card transition-colors hover:text-brand-text;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+  .crumbs a {
+    @apply inline-flex min-h-[44px] items-center text-ink-2 hover:text-brand-text;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }

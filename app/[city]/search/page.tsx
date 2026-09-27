@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { findCoverageByAddress } from "@/lib/coverage";
 import { ResultsList } from "@/components/ResultsList";
+import { AddressSearch } from "@/components/AddressSearch";
+import { LeadForm } from "@/components/LeadForm";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,10 @@ export default async function SearchPage({ params, searchParams }: Props) {
     return (
       <div>
         <Back city={city} cityName={cityRow.name} />
-        <p className="text-slate-500">Укажите улицу для поиска.</p>
+        <h1 className="text-3xl font-semibold text-ink">Проверить адрес</h1>
+        <div className="card mt-6">
+          <AddressSearch cities={[{ id: cityRow.id, slug: cityRow.slug, name: cityRow.name }]} />
+        </div>
       </div>
     );
   }
@@ -32,18 +37,31 @@ export default async function SearchPage({ params, searchParams }: Props) {
   return (
     <div>
       <Back city={city} cityName={cityRow.name} />
-      <h1 className="text-2xl font-bold text-slate-900">Тарифы по адресу</h1>
-      <p className="mt-1 text-slate-500">{result.addressText}</p>
+      <h1 className="text-3xl font-semibold text-ink">Тарифы по адресу</h1>
+      <p className="mt-2 text-lg text-ink-2">{result.addressText}</p>
       {result.matched === "street" && house && (
-        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          Точного дома нет в базе — показываем провайдеров по улице. Уточним при звонке.
+        <p className="mt-4 rounded-md2 bg-warn-bg px-4 py-3 text-warn" role="note">
+          Дома {house} нет в базе — показываем провайдеров по всей улице. В ваш дом может заходить
+          не каждый из них: уточним при звонке.
         </p>
       )}
 
       <div className="mt-6">
         {result.groups.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
-            По этому адресу провайдеров в базе пока нет. Оставьте заявку на главной — подберём вручную.
+          <div className="grid gap-6 sm:grid-cols-[1fr_1.2fr] sm:items-start">
+            <div>
+              <h2 className="text-xl font-semibold text-ink">Этого адреса пока нет в базе</h2>
+              <p className="mt-2 text-ink-2">
+                В демо-базе только несколько улиц. Оставьте телефон — проверим адрес вручную
+                и перезвоним с вариантами. Или попробуйте другой адрес:
+              </p>
+              <div className="card mt-4">
+                <AddressSearch cities={[{ id: cityRow.id, slug: cityRow.slug, name: cityRow.name }]} />
+              </div>
+            </div>
+            <div className="card">
+              <LeadForm addressText={result.addressText + (house ? `, д. ${house}` : "")} startOpen submitText="Подобрать вручную" />
+            </div>
           </div>
         ) : (
           <ResultsList
@@ -59,12 +77,12 @@ export default async function SearchPage({ params, searchParams }: Props) {
 
 function Back({ city, cityName }: { city: string; cityName: string }) {
   return (
-    <div className="mb-4 text-sm text-slate-500">
-      <Link href="/" className="hover:text-brand">
+    <div className="crumbs mb-2 flex flex-wrap items-center gap-x-2 text-sm text-ink-2">
+      <Link href="/" className="">
         Главная
       </Link>{" "}
       /{" "}
-      <Link href={`/${city}`} className="hover:text-brand">
+      <Link href={`/${city}`} className="">
         {cityName}
       </Link>
     </div>

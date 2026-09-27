@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStreetProviders } from "@/lib/coverage";
+import { prisma } from "@/lib/db";
 import { PlanCard } from "@/components/PlanCard";
 import { plural } from "@/lib/format";
 
@@ -29,6 +30,11 @@ export default async function StreetPage({ params }: Props) {
   if (!data) notFound();
 
   const { city: cityRow, street: streetRow, groups, buildingCount } = data;
+  const houses = await prisma.building.findMany({
+    where: { street: { slug: street, city: { slug: city } } },
+    select: { house: true },
+  });
+  houses.sort((a, b) => a.house.localeCompare(b.house, "ru", { numeric: true }));
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -49,46 +55,54 @@ export default async function StreetPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <div className="mb-4 text-sm text-slate-500">
-        <Link href="/" className="hover:text-brand">
+      <div className="crumbs mb-2 flex flex-wrap items-center gap-x-2 text-sm text-ink-2">
+        <Link href="/" className="">
           Главная
         </Link>{" "}
         /{" "}
-        <Link href={`/${city}`} className="hover:text-brand">
+        <Link href={`/${city}`} className="">
           {cityRow.name}
         </Link>{" "}
         / {streetRow.name}
       </div>
 
-      <h1 className="text-2xl font-bold text-slate-900">
+      <h1 className="text-3xl font-semibold text-ink">
         Интернет-провайдеры на {streetRow.name}
       </h1>
-      <p className="mt-1 text-slate-500">
+      <p className="mt-2 text-lg text-ink-2">
         {cityRow.name}. {groups.length}{" "}
         {plural(groups.length, "провайдер", "провайдера", "провайдеров")} на{" "}
-        {buildingCount} {plural(buildingCount, "доме", "домах", "домах")}. Уточните точный адрес,
-        чтобы увидеть, что доступно в вашем доме:
+        {buildingCount} {plural(buildingCount, "доме", "домах", "домах")}. Выберите дом —
+        покажем, кто заходит именно в него.
       </p>
 
-      <div className="mt-4">
-        <Link
-          href={`/${city}/search?street=${encodeURIComponent(streetRow.name)}`}
-          className="inline-block rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
-        >
-          Проверить по номеру дома
-        </Link>
-      </div>
+      {houses.length > 0 && (
+        <div className="mt-6">
+          <p className="label">Выберите дом</p>
+          <div className="flex flex-wrap gap-2">
+            {houses.map((h) => (
+              <Link
+                key={h.house}
+                href={`/${city}/search?street=${encodeURIComponent(streetRow.name)}&house=${encodeURIComponent(h.house)}`}
+                className="chip min-w-[56px] justify-center"
+              >
+                {h.house}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {groups.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
+        <div className="card mt-8 text-center text-ink-2">
           По этой улице провайдеров в базе пока нет.
         </div>
       ) : (
-        <div className="mt-8 space-y-6">
+        <div className="mt-8 space-y-8">
           {groups.map((g) => (
             <section key={g.providerId}>
-              <h2 className="mb-2 font-semibold text-slate-800">{g.providerName}</h2>
-              <div className="space-y-3">
+              <h2 className="mb-3 text-xl font-semibold text-ink">{g.providerName}</h2>
+              <div className="space-y-4">
                 {g.plans.map((p) => (
                   <PlanCard
                     key={p.id}

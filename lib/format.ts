@@ -27,3 +27,30 @@ export function plural(n: number, one: string, few: string, many: string): strin
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
   return many;
 }
+
+/**
+ * Технология подключения по-русски. В фидах провайдеров приходят коды
+ * GPON / FTTB / ADSL — человеку они ничего не говорят, а решение «оптика
+ * или медь» для него важное.
+ */
+const TECH: Record<string, string> = {
+  gpon: "оптика в квартиру",
+  ftth: "оптика в квартиру",
+  fttb: "оптика до дома",
+  adsl: "телефонная линия",
+  docsis: "кабель ТВ",
+};
+
+export function techLabel(note: string | null | undefined): string | null {
+  if (!note) return null;
+  const key = note.trim().toLowerCase();
+  return TECH[key] ?? note.trim();
+}
+
+/** Телефон: 10–11 цифр, российский формат. Пустая строка — ошибка. */
+export function phoneError(v: string): string | null {
+  const digits = v.replace(/\D/g, "");
+  if (!digits) return "Укажите телефон";
+  if (digits.length < 10 || digits.length > 11) return "Телефон выглядит неполным — пример: +7 900 123-45-67";
+  return null;
+}

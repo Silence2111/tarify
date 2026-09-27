@@ -38,34 +38,34 @@ export default async function CityPage({ params }: Props) {
 
   return (
     <div>
-      <div className="mb-4 text-sm text-slate-500">
-        <Link href="/" className="hover:text-brand">
+      <div className="crumbs mb-2 flex flex-wrap items-center gap-x-2 text-sm text-ink-2">
+        <Link href="/" className="">
           Главная
         </Link>{" "}
         / {cityRow.name}
       </div>
 
-      <h1 className="text-2xl font-bold text-slate-900">
+      <h1 className="text-3xl font-semibold text-ink">
         Интернет-провайдеры в {cityRow.name}
       </h1>
-      <p className="mt-1 text-slate-500">
+      <p className="mt-2 text-lg text-ink-2">
         {groups.length} {plural(groups.length, "провайдер", "провайдера", "провайдеров")} с тарифами.
         Проверьте, что доступно по вашему адресу:
       </p>
 
-      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="card mt-6">
         <AddressSearch cities={[{ id: cityRow.id, slug: cityRow.slug, name: cityRow.name }]} />
       </div>
 
       {streets.length > 0 && (
         <section className="mt-8">
-          <h2 className="mb-2 text-lg font-semibold text-slate-800">Улицы</h2>
+          <h2 className="mb-3 text-xl font-semibold text-ink">Улицы</h2>
           <div className="flex flex-wrap gap-2">
             {streets.map((s) => (
               <Link
                 key={s.slug}
                 href={`/${cityRow.slug}/${s.slug}`}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-brand hover:border-brand"
+                className="chip"
               >
                 {s.name}
               </Link>
@@ -74,11 +74,11 @@ export default async function CityPage({ params }: Props) {
         </section>
       )}
 
-      <div className="mt-8 space-y-6">
+      <div className="mt-8 space-y-8">
         {groups.map((g) => (
           <section key={g.providerId}>
-            <h2 className="mb-2 font-semibold text-slate-800">{g.providerName}</h2>
-            <div className="space-y-3">
+            <h2 className="mb-3 text-xl font-semibold text-ink">{g.providerName}</h2>
+            <div className="space-y-4">
               {g.plans.map((p) => (
                 <PlanCard key={p.id} plan={p} providerName={g.providerName} addressText={cityRow.name} />
               ))}

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ProviderGroup } from "@/lib/types";
 import { PlanCard } from "./PlanCard";
-import { plural } from "@/lib/format";
+import { plural, techLabel } from "@/lib/format";
 
 export function ResultsList({
   groups,
@@ -40,76 +40,56 @@ export function ResultsList({
 
   const totalPlans = filtered.reduce((s, g) => s + g.plans.length, 0);
 
+  const reset = () => { setMaxPrice(0); setMinSpeed(0); setTvOnly(false); };
+
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm">
-        <label className="flex items-center gap-1.5">
-          <span className="text-slate-500">До</span>
-          <input
-            type="number"
-            min={0}
-            step={50}
-            placeholder="₽/мес"
-            value={maxPrice || ""}
-            onChange={(e) => setMaxPrice(Number(e.target.value) || 0)}
-            className="w-24 rounded border border-slate-300 px-2 py-1"
-          />
+      <div className="card mb-6 grid gap-4 sm:grid-cols-[1fr_1fr_auto_1fr] sm:items-end">
+        <div>
+          <label htmlFor="f-price" className="label">Цена до, ₽ в месяц</label>
+          <input id="f-price" type="number" inputMode="numeric" min={0} step={50} placeholder="например, 800"
+            value={maxPrice || ""} onChange={(e) => setMaxPrice(Number(e.target.value) || 0)} className="field" />
+        </div>
+        <div>
+          <label htmlFor="f-speed" className="label">Скорость от, Мбит/с</label>
+          <input id="f-speed" type="number" inputMode="numeric" min={0} step={50} placeholder="например, 200"
+            value={minSpeed || ""} onChange={(e) => setMinSpeed(Number(e.target.value) || 0)} className="field" />
+        </div>
+        <label className="flex min-h-[48px] cursor-pointer items-center gap-3 text-ink">
+          <input type="checkbox" checked={tvOnly} onChange={(e) => setTvOnly(e.target.checked)} className="h-5 w-5 accent-brand" />
+          С телевидением
         </label>
-        <label className="flex items-center gap-1.5">
-          <span className="text-slate-500">От</span>
-          <input
-            type="number"
-            min={0}
-            step={50}
-            placeholder="Мбит/с"
-            value={minSpeed || ""}
-            onChange={(e) => setMinSpeed(Number(e.target.value) || 0)}
-            className="w-24 rounded border border-slate-300 px-2 py-1"
-          />
-        </label>
-        <label className="flex items-center gap-1.5">
-          <input type="checkbox" checked={tvOnly} onChange={(e) => setTvOnly(e.target.checked)} />
-          <span className="text-slate-600">С ТВ</span>
-        </label>
-        <label className="ml-auto flex items-center gap-1.5">
-          <span className="text-slate-500">Сортировка</span>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as "price" | "speed")}
-            className="rounded border border-slate-300 px-2 py-1"
-          >
-            <option value="price">по цене</option>
-            <option value="speed">по скорости</option>
+        <div>
+          <label htmlFor="f-sort" className="label">Сортировка</label>
+          <select id="f-sort" value={sort} onChange={(e) => setSort(e.target.value as "price" | "speed")} className="field">
+            <option value="price">сначала дешевле</option>
+            <option value="speed">сначала быстрее</option>
           </select>
-        </label>
+        </div>
       </div>
 
-      <p className="mb-3 text-sm text-slate-500">
+      <p className="mb-4 text-ink-2">
         {filtered.length} {plural(filtered.length, "провайдер", "провайдера", "провайдеров")},{" "}
         {totalPlans} {plural(totalPlans, "тариф", "тарифа", "тарифов")}
       </p>
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
-          Под фильтры ничего не нашлось. Смягчите условия.
+        <div className="card text-center">
+          <p className="font-medium text-ink">Под эти условия тарифов нет</p>
+          <p className="mt-1 text-ink-2">Поднимите цену или снизьте скорость.</p>
+          <button type="button" onClick={reset} className="btn-soft mt-4">Сбросить фильтры</button>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {filtered.map((g) => (
             <section key={g.providerId}>
-              <div className="mb-2 flex items-baseline justify-between">
-                <h2 className="font-semibold text-slate-800">{g.providerName}</h2>
-                {g.techNote && <span className="text-xs text-slate-400">{g.techNote}</span>}
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-xl font-semibold text-ink">{g.providerName}</h2>
+                {g.techNote && <span className="text-sm text-ink-2">{techLabel(g.techNote)}</span>}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {g.plans.map((p) => (
-                  <PlanCard
-                    key={p.id}
-                    plan={p}
-                    providerName={g.providerName}
-                    addressText={addressText}
-                    buildingId={buildingId}
-                  />
+                  <PlanCard key={p.id} plan={p} providerName={g.providerName} addressText={addressText} buildingId={buildingId} />
                 ))}
               </div>
             </section>

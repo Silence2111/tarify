@@ -6,20 +6,19 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-// Базовая политика для MVP. Перед реальным запуском — согласовать с юристом
-// и подставить реквизиты оператора (наименование/ИНН/адрес/контакты).
+// Политика обработки ПДн. Реквизиты оператора помечены «заполнить».
 export default function PrivacyPage() {
   return (
-    <article className="prose-sm max-w-2xl text-slate-700">
-      <h1 className="text-2xl font-bold text-slate-900">Политика обработки персональных данных</h1>
-      <p className="mt-3 text-sm text-slate-500">
+    <article className="card max-w-2xl sm:p-10">
+      <h1 className="text-3xl font-semibold text-ink">Политика обработки персональных данных</h1>
+      <p className="mt-3 text-ink-2">
         Документ описывает обработку персональных данных на этом сайте в соответствии с
         Федеральным законом № 152-ФЗ «О персональных данных».
       </p>
 
       <Section title="1. Оператор">
-        Оператором персональных данных является владелец сайта (далее — «Оператор»). Реквизиты
-        Оператора указываются в договоре/контактах. <em>[Подставить наименование, ИНН, адрес, e-mail.]</em>
+        Оператор персональных данных: <Fill>ФИО или название организации</Fill>, ИНН{" "}
+        <Fill>ИНН</Fill>, адрес <Fill>адрес</Fill>, почта <Fill>почта</Fill>.
       </Section>
 
       <Section title="2. Какие данные мы собираем">
@@ -55,18 +54,20 @@ export default function PrivacyPage() {
         удаление, а также отозвать согласие — обратившись к Оператору.
       </Section>
 
-      <p className="mt-6 text-xs text-slate-400">
-        Это шаблон для MVP. Перед публичным запуском политику необходимо доработать с юристом.
-      </p>
     </article>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-5">
-      <h2 className="font-semibold text-slate-800">{title}</h2>
-      <p className="mt-1 text-sm text-slate-600">{children}</p>
+    <section className="mt-6">
+      <h2 className="text-lg font-semibold text-ink">{title}</h2>
+      <p className="mt-1 text-ink-2">{children}</p>
     </section>
   );
+}
+
+/** Реквизитов у владельца пока нет — помечаем, а не выдумываем. */
+function Fill({ children }: { children: string }) {
+  return <span className="rounded bg-warn-bg px-1.5 text-warn">заполнить: {children}</span>;
 }

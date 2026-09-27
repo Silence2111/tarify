@@ -20,65 +20,46 @@ type PlanSeed = {
 };
 type ProviderSeed = { slug: string; name: string; phone: string; payoutRub: number; plans: PlanSeed[] };
 
+/**
+ * Демо-данные. Своего покрытия у продукта пока нет, поэтому:
+ *  - провайдеры вымышленные («Провайдер А» и т. д.). Раньше здесь стояли
+ *    Ростелеком, МТС, Билайн с придуманными тарифами, ценами и телефонами —
+ *    чужой бренд с выдуманной ценой выглядит как настоящее предложение;
+ *  - город один — Казань, и он помечен демо. Три города со списком
+ *    на главной читались как «работаем по стране».
+ * Настоящие провайдеры появятся вместе с партнёрскими фидами покрытия
+ * (импорт CSV в админке).
+ */
 const PROVIDERS: ProviderSeed[] = [
-  { slug: "rostelecom", name: "Ростелеком", phone: "8 800 100-08-00", payoutRub: 2200, plans: [
-    { name: "Технологии общения 100", speedMbps: 100, priceMonthly: 600, priceFirst: 300, description: "Домашний интернет 100 Мбит/с по технологии GPON.", options: [{ label: "Wi-Fi роутер", value: "в аренду 99 ₽/мес" }] },
-    { name: "Игровой 500 + ТВ", speedMbps: 500, priceMonthly: 950, hasTv: true, tvChannels: 200, description: "Скоростной интернет и интерактивное ТВ Wink.", options: [{ label: "ТВ-приставка", value: "в комплекте" }] },
+  { slug: "demo-a", name: "Провайдер А (демо)", phone: "", payoutRub: 2000, plans: [
+    { name: "Интернет 100", speedMbps: 100, priceMonthly: 600, priceFirst: 300, description: "Оптика в квартиру, 100 Мбит/с.", options: [{ label: "Роутер", value: "в аренду 99 ₽ в месяц" }] },
+    { name: "Интернет 500 и ТВ", speedMbps: 500, priceMonthly: 950, hasTv: true, tvChannels: 200, description: "Скоростной интернет и цифровое ТВ.", options: [{ label: "ТВ-приставка", value: "в комплекте" }] },
   ]},
-  { slug: "domru", name: "Дом.ру", phone: "8 800 333-70-00", payoutRub: 1500, plans: [
-    { name: "Только интернет 200", speedMbps: 200, priceMonthly: 650, priceFirst: 350, description: "FTTB до 200 Мбит/с." },
-    { name: "Интернет 300 + ТВ + Моб.", speedMbps: 300, priceMonthly: 1050, hasTv: true, tvChannels: 150, hasMobile: true, mobileGb: 20, description: "Конвергентный тариф: интернет, ТВ и мобильная связь." },
+  { slug: "demo-b", name: "Провайдер Б (демо)", phone: "", payoutRub: 1500, plans: [
+    { name: "Интернет 200", speedMbps: 200, priceMonthly: 650, priceFirst: 350, description: "Оптика до дома, до 200 Мбит/с." },
+    { name: "Интернет 300, ТВ и связь", speedMbps: 300, priceMonthly: 1050, hasTv: true, tvChannels: 150, hasMobile: true, mobileGb: 20, description: "Интернет, ТВ и мобильная связь одним счётом." },
   ]},
-  { slug: "ttk", name: "ТТК", phone: "8 800 775-00-00", payoutRub: 1200, plans: [
+  { slug: "demo-v", name: "Провайдер В (демо)", phone: "", payoutRub: 1200, plans: [
     { name: "Базовый 100", speedMbps: 100, priceMonthly: 500, description: "Недорогой домашний интернет." },
   ]},
-  { slug: "mts", name: "МТС", phone: "8 800 250-08-90", payoutRub: 1800, plans: [
-    { name: "Тёплый приём 200", speedMbps: 200, priceMonthly: 700, priceFirst: 0, hasTv: true, tvChannels: 180, description: "Интернет + ТВ, первый месяц бесплатно." },
+  { slug: "demo-g", name: "Провайдер Г (демо)", phone: "", payoutRub: 1800, plans: [
+    { name: "Интернет 200 и ТВ", speedMbps: 200, priceMonthly: 700, priceFirst: 0, hasTv: true, tvChannels: 180, description: "Интернет и ТВ, первый месяц бесплатно." },
   ]},
-  { slug: "beeline", name: "Билайн", phone: "8 800 700-80-00", payoutRub: 1500, plans: [
-    { name: "Близкие 300", speedMbps: 300, priceMonthly: 750, hasTv: true, tvChannels: 160, description: "Интернет и ТВ для дома." },
-    { name: "Всё в одном 500", speedMbps: 500, priceMonthly: 1100, hasTv: true, tvChannels: 200, hasMobile: true, mobileGb: 30, description: "Конвергент: интернет + ТВ + мобильная связь." },
-  ]},
-  { slug: "mgts", name: "МГТС", phone: "8 495 636-06-36", payoutRub: 2000, plans: [
-    { name: "GPON 500", speedMbps: 500, priceMonthly: 800, description: "Оптика до квартиры, до 500 Мбит/с." },
-    { name: "GPON 1000 + ТВ", speedMbps: 1000, priceMonthly: 1200, hasTv: true, tvChannels: 220, description: "Гигабит и цифровое ТВ." },
-  ]},
-  { slug: "twocom", name: "2КОМ", phone: "8 495 727-42-15", payoutRub: 1300, plans: [
-    { name: "Домашний 200", speedMbps: 200, priceMonthly: 550, description: "Московский провайдер, FTTB." },
-  ]},
-  { slug: "skynet", name: "СкайНет", phone: "8 812 313-22-22", payoutRub: 1100, plans: [
-    { name: "Скай 300", speedMbps: 300, priceMonthly: 600, description: "Петербургский провайдер, до 300 Мбит/с." },
-  ]},
-  { slug: "letai", name: "Летай (Таттелеком)", phone: "8 843 000-00-00", payoutRub: 1000, plans: [
-    { name: "Летай Старт 150", speedMbps: 150, priceMonthly: 550, description: "Региональный провайдер Татарстана." },
-    { name: "Летай Макс 700", speedMbps: 700, priceMonthly: 900, description: "Максимальная скорость на сети Таттелеком." },
+  { slug: "demo-d", name: "Провайдер Д (демо)", phone: "", payoutRub: 1000, plans: [
+    { name: "Старт 150", speedMbps: 150, priceMonthly: 550, description: "Местный провайдер." },
+    { name: "Максимум 700", speedMbps: 700, priceMonthly: 900, description: "Самая высокая скорость в сети провайдера." },
   ]},
 ];
 
 type CitySeed = { name: string; region: string; providers: string[]; streets: { name: string; houses: string[] }[] };
 
 const CITIES: CitySeed[] = [
-  { name: "Казань", region: "Татарстан", providers: ["rostelecom", "domru", "ttk", "mts", "letai"], streets: [
+  { name: "Казань", region: "Татарстан", providers: ["demo-a", "demo-b", "demo-v", "demo-g", "demo-d"], streets: [
     { name: "улица Баумана", houses: ["1", "3", "5", "7"] },
     { name: "улица Пушкина", houses: ["10", "12", "14"] },
     { name: "проспект Победы", houses: ["100", "102", "104", "106"] },
     { name: "улица Декабристов", houses: ["2", "4", "6"] },
     { name: "улица Чистопольская", houses: ["20", "22", "24", "26"] },
-  ]},
-  { name: "Москва", region: "Москва", providers: ["rostelecom", "domru", "mts", "beeline", "mgts", "twocom"], streets: [
-    { name: "Тверская улица", houses: ["1", "5", "9", "13"] },
-    { name: "Ленинский проспект", houses: ["30", "32", "34", "36"] },
-    { name: "улица Арбат", houses: ["2", "4", "6", "8"] },
-    { name: "Кутузовский проспект", houses: ["21", "23", "25"] },
-    { name: "Профсоюзная улица", houses: ["40", "42", "44", "46"] },
-    { name: "улица Тверская-Ямская", houses: ["3", "5", "7"] },
-  ]},
-  { name: "Санкт-Петербург", region: "Санкт-Петербург", providers: ["rostelecom", "domru", "mts", "beeline", "skynet"], streets: [
-    { name: "Невский проспект", houses: ["20", "22", "24", "28"] },
-    { name: "Лиговский проспект", houses: ["50", "52", "54"] },
-    { name: "Московский проспект", houses: ["100", "102", "104", "106"] },
-    { name: "улица Рубинштейна", houses: ["3", "5", "7"] },
-    { name: "Большой проспект П.С.", houses: ["60", "62", "64"] },
   ]},
 ];
 
@@ -113,7 +94,7 @@ async function main() {
   }
 
   console.log("Города, улицы, дома, покрытие...");
-  const tech = ["GPON", "FTTB", "FTTB", "GPON", "ADSL"];
+  const tech = ["оптика в квартиру", "оптика до дома", "оптика до дома", "оптика в квартиру", "телефонная линия"];
   let bIdx = 0;
   for (const city of CITIES) {
     const cityRow = await prisma.city.create({
@@ -154,7 +135,7 @@ async function main() {
   if (someBuilding && somePlan) {
     await prisma.lead.create({
       data: {
-        name: "Иван Петров", phone: "+7 900 123-45-67",
+        name: "Демо-заявка", phone: "+7 900 000-00-00",
         addressText: `${someBuilding.street.city.name}, ${someBuilding.street.name}, д. ${someBuilding.house}`,
         buildingId: someBuilding.id, planId: somePlan.id, status: "NEW",
       },
