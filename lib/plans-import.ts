@@ -395,6 +395,7 @@ async function importScope(
       erid: row.erid,
       description: row.description,
       isActive: true,
+      importedAt: new Date(),
     };
     const found = byName.get(row.name);
     if (found) {

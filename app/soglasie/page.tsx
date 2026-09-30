@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { dataRecipients, operatorDetails } from "@/lib/operator";
 
 export const metadata: Metadata = {
   title: "Согласие на обработку персональных данных",
@@ -7,9 +8,11 @@ export const metadata: Metadata = {
 };
 
 // Отдельный документ согласия (152-ФЗ, с 01.09.2025 согласие оформляется отдельно
-// от иных документов). Шаблон для MVP: перед реальным запуском — заполнить
-// реквизиты оператора и партнёрских сетей и согласовать с юристом.
+// от иных документов). Шаблон для MVP: реквизиты оператора и получателей данных —
+// из переменных OPERATOR_* и PD_RECIPIENTS (DEPLOY.md); текст согласовать с юристом.
 export default function ConsentPage() {
+  const operator = operatorDetails();
+  const recipients = dataRecipients();
   return (
     <article className="max-w-2xl text-slate-700">
       <h1 className="text-2xl font-bold text-slate-900">
@@ -22,7 +25,8 @@ export default function ConsentPage() {
       </p>
 
       <Section title="1. Кому я даю согласие">
-        Оператору — владельцу сайта. <em>[Наименование, ИНН, ОГРН, адрес, e-mail — заполнить.]</em>
+        Оператору — владельцу сайта:{" "}
+        {operator ?? <em>[Наименование, ИНН, ОГРН, адрес, e-mail — заполнить.]</em>}
       </Section>
 
       <Section title="2. Какие данные">
@@ -38,7 +42,8 @@ export default function ConsentPage() {
       <Section title="4. Кому данные могут быть переданы">
         Провайдеру, оператору связи или банку, чей тариф выбран в заявке, — для подключения
         услуги. Партнёрской сети, через которую заявка передаётся этому провайдеру.{" "}
-        <em>[Наименования партнёрских сетей — заполнить.]</em> Другим лицам данные не
+        {recipients ? `Получатели: ${recipients}.` : <em>[Наименования партнёрских сетей — заполнить.]</em>}{" "}
+        Другим лицам данные не
         передаются, кроме случаев, предусмотренных законом.
       </Section>
 

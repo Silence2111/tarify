@@ -6,6 +6,7 @@ const SECTIONS = [
   { href: "/admin/coverage", label: "Покрытие" },
   { href: "/admin/plans", label: "Тарифы" },
   { href: "/admin/clicks", label: "Переходы" },
+  { href: "/admin/launch", label: "Запуск" },
 ] as const;
 
 // Разделы админки: текущий — текстом, остальные — ссылками.

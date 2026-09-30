@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { metrikaId } from "@/lib/analytics";
+import { dataRecipients, operatorDetails } from "@/lib/operator";
 
 export const metadata: Metadata = {
   title: "Политика конфиденциальности",
@@ -7,9 +8,11 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-// Базовая политика для MVP. Перед реальным запуском — согласовать с юристом
-// и подставить реквизиты оператора (наименование/ИНН/адрес/контакты).
+// Базовая политика для MVP. Реквизиты оператора и получателей данных — из переменных
+// OPERATOR_* и PD_RECIPIENTS (DEPLOY.md); текст перед запуском согласовать с юристом.
 export default function PrivacyPage() {
+  const operator = operatorDetails();
+  const recipients = dataRecipients();
   return (
     <article className="prose-sm max-w-2xl text-slate-700">
       <h1 className="text-2xl font-bold text-slate-900">Политика обработки персональных данных</h1>
@@ -19,8 +22,8 @@ export default function PrivacyPage() {
       </p>
 
       <Section title="1. Оператор">
-        Оператором персональных данных является владелец сайта (далее — «Оператор»). Реквизиты
-        Оператора указываются в договоре/контактах. <em>[Подставить наименование, ИНН, адрес, e-mail.]</em>
+        Оператором персональных данных является владелец сайта (далее — «Оператор»):{" "}
+        {operator ?? <em>[Подставить наименование, ИНН, адрес, e-mail.]</em>}
       </Section>
 
       <Section title="2. Какие данные мы собираем">
@@ -46,8 +49,9 @@ export default function PrivacyPage() {
       <Section title="5. Передача третьим лицам">
         Для выполнения заявки данные могут передаваться провайдеру связи или банку, чей тариф
         выбран, — с целью подключения услуги, а также партнёрской сети, через которую заявка
-        передаётся этому провайдеру, и в систему учёта заявок (CRM), если Оператор её использует.
-        Иным лицам данные не передаются, кроме случаев, предусмотренных законом.
+        передаётся этому провайдеру, и в систему учёта заявок (CRM), если Оператор её использует
+        {recipients ? ` (${recipients})` : ""}. Иным лицам данные не передаются, кроме случаев,
+        предусмотренных законом.
       </Section>
 
       <Section title="6. Хранение и защита">

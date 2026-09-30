@@ -190,6 +190,8 @@ describe("загрузка прайса в БД", () => {
           name: "Старт",
           priceMonthly: 450,
           isActive: true,
+          // Метка «из прайса»: по ней очистка демо-данных не тронет этот тариф.
+          importedAt: expect.any(Date),
           options: { create: [{ label: "Роутер", value: "1 ₽" }] },
         }),
       }),
