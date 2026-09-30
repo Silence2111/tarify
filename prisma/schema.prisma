@@ -219,6 +219,10 @@ model Lead {
   networkAt        DateTime?
   payoutRub        Int? // сумма из постбэка, ₽ — точнее ставки провайдера
 
+  // Передача в CPA-сеть или CRM сразу после заявки (LEAD_WEBHOOK_URL).
+  deliveredAt   DateTime? // принята адресом приёма
+  deliveryError String? // последняя ошибка передачи — видна в админке, можно отправить ещё раз
+
   @@index([status])
   @@index([createdAt])
 }

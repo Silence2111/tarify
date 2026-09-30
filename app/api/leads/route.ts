@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { deliverLead } from "@/lib/lead-delivery";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 // Приём заявки на подключение — это и есть «деньги» воронки.
@@ -49,6 +50,9 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true },
   });
+
+  // В сеть или CRM и уведомление оператору — после ответа: посетитель не ждёт чужой API.
+  after(() => deliverLead(lead.id));
 
   return NextResponse.json({ ok: true, id: lead.id }, { status: 201 });
 }

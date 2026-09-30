@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
 import { formatRub, plural } from "@/lib/format";
 import { AdminNav } from "@/components/AdminNav";
+import { LeadDeliverButton } from "@/components/LeadDeliverButton";
 import { LeadStatusControl } from "@/components/LeadStatusControl";
+import { deliveryEnabled, deliveryHost } from "@/lib/lead-delivery";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,8 @@ export default async function LeadsPage() {
     0,
   );
   const fromNetwork = confirmed.filter((l) => l.networkStatus === "APPROVED").length;
+  const delivery = deliveryEnabled();
+  const host = deliveryHost();
   // Конверсия заявка → подключение (аппрув) — ключевая метрика юнит-экономики.
   const closable = counts.CONFIRMED + counts.REJECTED;
   const approval = closable > 0 ? Math.round((counts.CONFIRMED / closable) * 100) : null;
@@ -94,10 +98,20 @@ export default async function LeadsPage() {
       </div>
 
       <p className="mt-3 max-w-3xl text-xs text-slate-500">
-        Статусы можно получать от CPA-сети автоматически: передавая заявку в сеть, укажите её
-        номер (серый под датой, колонка <code>id</code> в CSV) как метку <code>subid</code>.
-        Постбэк — тот же адрес, что в разделе «Переходы»: «одобрено» ставит «Подключён» и сумму,
-        «отклонено» — «Отказ».
+        {delivery ? (
+          <>
+            Заявки сразу уходят в сеть или CRM ({host ?? "адрес из LEAD_WEBHOOK_URL"}) с номером
+            заявки в метке <code>subid</code>.
+          </>
+        ) : (
+          <>
+            Автопередача выключена: задайте <code>LEAD_WEBHOOK_URL</code> — адрес приёма заявок
+            сети или CRM (см. DEPLOY.md). Пока передавайте заявки выгрузкой, указывая номер заявки
+            (серый под датой, колонка <code>id</code> в CSV) как метку <code>subid</code>.
+          </>
+        )}{" "}
+        Статусы возвращает постбэк — тот же адрес, что в разделе «Переходы»: «одобрено» ставит
+        «Подключён» и сумму, «отклонено» — «Отказ».
       </p>
 
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-400">
@@ -146,6 +160,25 @@ export default async function LeadsPage() {
                         {l.payoutRub != null && ` · ${formatRub(l.payoutRub)}`}
                         {l.networkAt && ` · ${l.networkAt.toLocaleDateString("ru-RU")}`}
                       </div>
+                    )}
+                    {l.deliveredAt ? (
+                      <div className="mt-1 text-xs text-slate-400">
+                        Передана в сеть {l.deliveredAt.toLocaleString("ru-RU")}
+                      </div>
+                    ) : (
+                      delivery && (
+                        <div className="mt-1 space-y-1 text-xs">
+                          {l.deliveryError && (
+                            <div className="break-words text-red-600">
+                              Не передана: {l.deliveryError}
+                            </div>
+                          )}
+                          <LeadDeliverButton
+                            id={l.id}
+                            label={l.deliveryError ? "Отправить ещё раз" : "Отправить в сеть"}
+                          />
+                        </div>
+                      )
                     )}
                   </td>
                 </tr>
