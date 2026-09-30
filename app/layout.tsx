@@ -66,9 +66,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Сравнение бесплатно для пользователя — мы получаем вознаграждение от провайдеров за
               подключение.
             </span>
-            <Link href="/privacy" className="hover:text-brand">
-              Политика конфиденциальности
-            </Link>
+            <span className="flex flex-wrap gap-x-4 gap-y-1">
+              <Link href="/izmeneniya-cen" className="hover:text-brand">
+                Изменения цен
+              </Link>
+              <Link href="/privacy" className="hover:text-brand">
+                Политика конфиденциальности
+              </Link>
+            </span>
           </div>
         </footer>
       </body>

@@ -22,6 +22,7 @@ export function PlansImport() {
         { key: "plansCreated", label: "Добавлено", tone: "good" },
         { key: "plansUpdated", label: "Обновлено", tone: "muted" },
         { key: "plansHidden", label: "Скрыто" },
+        { key: "pricesChanged", label: "Цена изменилась" },
         { key: "providersCreated", label: "Провайдеров создано" },
       ]}
     />

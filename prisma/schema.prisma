@@ -29,6 +29,14 @@ enum ConversionStatus {
   REJECTED // отклонено
 }
 
+// Что случилось с ценой тарифа при загрузке прайса.
+enum PriceChangeKind {
+  NEW     // тариф появился (кроме первой загрузки прайса провайдера в регионе)
+  UP      // подорожал
+  DOWN    // подешевел
+  REMOVED // снят: пропал из прайса
+}
+
 enum LeadStatus {
   NEW       // заявка пришла
   CALLED    // дозвонились / в работе
@@ -79,6 +87,7 @@ model Plan {
   options      PlanOption[]
   leads        Lead[]
   clicks       Click[]
+  priceChanges PriceChange[]
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
   // Свежесть цены: повторная загрузка прайса обновляет. Каталоги показывают
@@ -87,6 +96,22 @@ model Plan {
 
   @@index([providerId])
   @@index([type, region])
+}
+
+// История цен: импорт прайса записывает каждое изменение. Из неё — лента «Изменения
+// цен» и пометки «подорожал/подешевел» на карточках. Подорожание у оператора — частый
+// повод искать новый тариф, а у конкурентов цены висят без дат и истории.
+model PriceChange {
+  id        String          @id @default(cuid())
+  plan      Plan            @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planId    String
+  kind      PriceChangeKind
+  oldPrice  Int? // ₽/мес до изменения; у нового тарифа — null
+  newPrice  Int? // ₽/мес после; у снятого — null
+  createdAt DateTime        @default(now())
+
+  @@index([createdAt])
+  @@index([planId, createdAt])
 }
 
 // Гибкие опции тарифа (роутер в аренду, статический IP, антивирус и т.п.)

@@ -23,9 +23,10 @@
 | Согласие на ПДн | [app/soglasie/page.tsx](app/soglasie/page.tsx) + [components/ConsentCheckbox.tsx](components/ConsentCheckbox.tsx) | Отдельный документ согласия (требование с 01.09.2025) и галочка во всех формах |
 | Подбор под расход | [app/mobile/podbor/page.tsx](app/mobile/podbor/page.tsx) + [lib/usage.ts](lib/usage.ts) | «Переплачиваете за связь?»: расход (ГБ, минуты) и платёж или свой тариф → подходящие тарифы по цене и экономия за месяц и год. Работает без JS, ссылкой на результат можно поделиться |
 | SEO-подборки | [app/mobile/podborka/](app/mobile/podborka/) + [lib/collections.ts](lib/collections.ts) | «Безлимитный интернет», «С eSIM», «Без абонплаты» и др. со своими цифрами; меньше 3 тарифов — не в индексе |
+| Изменения цен | [app/izmeneniya-cen/page.tsx](app/izmeneniya-cen/page.tsx) + [lib/price-history.ts](lib/price-history.ts) | Импорт прайса записывает историю: подорожал, подешевел, новый, снят. Лента с датами и процентами, пометка «подорожал на 50 ₽ · 24 сент.» на карточках (60 дней), изменения оператора на его странице |
 | Переходы и постбэк | [app/go/](app/go/) + [lib/postback.ts](lib/postback.ts) + [app/admin/clicks/page.tsx](app/admin/clicks/page.tsx) | «Оформить» записывает переход и передаёт его номер в сеть как `{subid}`; постбэк сети возвращает статус и сумму — заработок по операторам в админке. Тот же постбэк принимает статусы заявок: заявка, переданная в сеть со своим id в метке, сама становится «Подключён» или «Отказ» с суммой от сети |
 
-Маршруты: `/` · `/[city]` и `/[city]/[street]` (гео-SEO) · `/[city]/search?street=&house=` (результаты) · `/mobile`, `/mobile/[operator]`, `/mobile/podborka/[slug]` и `/mobile/podbor` (мобильная связь, `?region=`) · `/business` · `/privacy` · `/soglasie` · `/go/[planId]` (переход по партнёрской ссылке) · `/api/postback` (статусы от CPA-сетей) · админка под паролем: `/admin/leads`, `/admin/coverage`, `/admin/plans`, `/admin/clicks` (вход — `/admin/login`).
+Маршруты: `/` · `/[city]` и `/[city]/[street]` (гео-SEO) · `/[city]/search?street=&house=` (результаты) · `/mobile`, `/mobile/[operator]`, `/mobile/podborka/[slug]` и `/mobile/podbor` (мобильная связь, `?region=`) · `/business` · `/izmeneniya-cen` (лента изменений цен, `?type=mobile|home|business`) · `/privacy` · `/soglasie` · `/go/[planId]` (переход по партнёрской ссылке) · `/api/postback` (статусы от CPA-сетей) · админка под паролем: `/admin/leads`, `/admin/coverage`, `/admin/plans`, `/admin/clicks` (вход — `/admin/login`).
 
 В поиск по адресу провайдер попадает, только если у него есть **покрытие** дома и хотя бы один **активный домашний тариф** — это две разные загрузки в админке. Мобильной связи и счетам для бизнеса покрытие не нужно: они живут в своих каталогах.
 
@@ -118,4 +119,7 @@ ADMIN_PASSWORD=secret SITE_URL=http://localhost:3000 \
 - **переходы и постбэк**: метка `{subid}` в query и в пути ссылки, статусы Pampadu и Admitad,
   суммы с копейками, роботы не попадают в статистику; постбэк по заявке двигает воронку
   («одобрено» → «Подключён» с суммой сети), поздний повтор «pending» не откатывает одобренное;
+- **история цен**: импорт отличает подорожание, снижение, новый и снятый тариф; первая загрузка
+  прайса — не новость, вернувшийся скрытый тариф — новый; пометка на карточке только свежая
+  (60 дней), сводка ленты — сколько подорожало и насколько в среднем;
 - **CSV-парсер**: кавычки, BOM и «;» из русского Excel.

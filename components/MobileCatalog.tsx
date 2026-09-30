@@ -8,7 +8,9 @@ import {
 import { pickRegion } from "@/lib/catalog-filter";
 import { collectionPlans, MOBILE_COLLECTIONS, priceStats, type Collection } from "@/lib/collections";
 import { formatDate, formatRub, plural } from "@/lib/format";
+import { getPriceChanges } from "@/lib/price-history";
 import { CatalogList } from "./CatalogList";
+import { PriceChangeList } from "./PriceChangeList";
 import { RegionSelect } from "./RegionSelect";
 
 // Страница каталога мобильной связи: вся, по одному оператору или SEO-подборка.
@@ -25,10 +27,14 @@ export async function MobileCatalog({
 }) {
   const regions = await getCatalogRegions("MOBILE");
   const region = pickRegion(requestedRegion, regions);
-  const [regionPlans, providers, updatedAt] = await Promise.all([
+  const [regionPlans, providers, updatedAt, operatorChanges] = await Promise.all([
     getCatalogPlans("MOBILE", { region, providerSlug: operator?.slug }),
     getCatalogProviders("MOBILE"),
     getCatalogUpdatedAt("MOBILE", region),
+    // На странице оператора — его изменения цен за год: «МТС повысил цены» ищут часто.
+    operator
+      ? getPriceChanges({ types: ["MOBILE"], providerSlug: operator.slug, region, days: 365, take: 5 })
+      : Promise.resolve([]),
   ]);
   const plans = collection ? collectionPlans(collection, regionPlans) : regionPlans;
   const stats = collection ? priceStats(plans) : null;
@@ -90,7 +96,12 @@ export async function MobileCatalog({
         </p>
       )}
       {updatedAt && (
-        <p className="mt-1 text-sm text-slate-400">Цены обновлены {formatDate(updatedAt)}</p>
+        <p className="mt-1 text-sm text-slate-400">
+          Цены обновлены {formatDate(updatedAt)} ·{" "}
+          <Link href="/izmeneniya-cen?type=mobile" className="hover:text-brand hover:underline">
+            история изменений цен
+          </Link>
+        </p>
       )}
       {regionPlans.length > 0 && (
         <Link
@@ -144,6 +155,18 @@ export async function MobileCatalog({
           <CatalogList plans={plans} kind="mobile" providers={listProviders} />
         )}
       </div>
+
+      {operator && operatorChanges.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold text-slate-800">Изменения цен {operator.name}</h2>
+            <Link href="/izmeneniya-cen?type=mobile" className="text-sm text-brand hover:underline">
+              Все изменения цен →
+            </Link>
+          </div>
+          <PriceChangeList items={operatorChanges} />
+        </section>
+      )}
 
       <p className="mt-6 text-xs text-slate-400">
         Цены — по данным операторов на момент загрузки, точные условия — на сайте оператора. Мы

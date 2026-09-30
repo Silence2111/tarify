@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { LATEST_PRICE_CHANGE, recentPriceChange } from "@/lib/price-history";
 import { HOME_PLAN_TYPES, type PlanView, type ProviderGroup } from "@/lib/types";
 
 // Поля каталогов (минуты, регион, ссылка…) необязательны: строкам покрытия
@@ -22,6 +23,7 @@ export function toPlanView(p: {
   erid?: string | null;
   description: string | null;
   options: { label: string; value: string }[];
+  priceChanges?: { kind: string; oldPrice: number | null; newPrice: number | null; createdAt: Date }[];
 }): PlanView {
   return {
     id: p.id,
@@ -42,6 +44,7 @@ export function toPlanView(p: {
     erid: p.erid ?? null,
     description: p.description,
     options: p.options.map((o) => ({ label: o.label, value: o.value })),
+    priceChange: recentPriceChange(p.priceChanges),
   };
 }
 
@@ -51,7 +54,7 @@ export function toPlanView(p: {
 // живёт в своём каталоге и в выдачу по адресу дома не попадает.
 const activePlansQuery = {
   where: { isActive: true, type: { in: [...HOME_PLAN_TYPES] } },
-  include: { options: true },
+  include: { options: true, priceChanges: LATEST_PRICE_CHANGE },
   orderBy: { priceMonthly: "asc" as const },
 };
 

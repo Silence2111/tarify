@@ -1,5 +1,6 @@
 import { toPlanView } from "@/lib/coverage";
 import { prisma } from "@/lib/db";
+import { LATEST_PRICE_CHANGE } from "@/lib/price-history";
 import type { CatalogPlan, PlanType } from "@/lib/types";
 
 // Каталоги тарифов без привязки к дому: мобильная связь и счета для бизнеса.
@@ -17,7 +18,11 @@ export async function getCatalogPlans(
       // Цены выбранного региона плюс тарифы с единой ценой по России.
       ...(opts.region !== undefined ? { OR: [{ region: opts.region }, { region: null }] } : {}),
     },
-    include: { options: true, provider: { select: { name: true, slug: true } } },
+    include: {
+      options: true,
+      provider: { select: { name: true, slug: true } },
+      priceChanges: LATEST_PRICE_CHANGE,
+    },
     orderBy: { priceMonthly: "asc" },
     ...(opts.take ? { take: opts.take } : {}),
   });

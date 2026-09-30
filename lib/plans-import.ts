@@ -1,5 +1,7 @@
+import type { Prisma } from "@prisma/client";
 import { parseCsv } from "@/lib/csv";
 import { prisma } from "@/lib/db";
+import { priceChangeKind } from "@/lib/price-history";
 import { UNLIMITED, type PlanView } from "@/lib/types";
 
 // Импорт тарифов из CSV — прайс провайдеров: что в файле, то и на сайте.
@@ -57,6 +59,7 @@ export type PlansImportSummary = {
   plansCreated: number;
   plansUpdated: number;
   plansHidden: number; // тарифы провайдеров из файла, которых в файле не оказалось
+  pricesChanged: number; // подорожали или подешевели — попадут в ленту изменений цен
   errors: ImportError[];
 };
 
@@ -268,6 +271,7 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
     plansCreated: 0,
     plansUpdated: 0,
     plansHidden: 0,
+    pricesChanged: 0,
     errors,
   };
   if (errors.length > 0) return summary;
@@ -310,10 +314,14 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
 
     const existing = await prisma.plan.findMany({
       where: { providerId, region },
-      select: { id: true, name: true, isActive: true },
+      select: { id: true, name: true, isActive: true, priceMonthly: true },
     });
     const byName = new Map(existing.map((p) => [p.name, p]));
     const listed = new Set<string>();
+    // История цен. Первая загрузка прайса пары — не новость: иначе лента утонет
+    // в «новых тарифах», которые на самом деле просто впервые попали на сайт.
+    const changes: Prisma.PriceChangeCreateManyInput[] = [];
+    const firstLoad = existing.length === 0;
 
     for (const row of plans) {
       const data = {
@@ -343,6 +351,17 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
         });
         listed.add(found.id);
         summary.plansUpdated++;
+        const kind = found.isActive ? priceChangeKind(found.priceMonthly, row.priceMonthly) : "NEW";
+        if (kind) {
+          // Скрытый тариф вернулся в прайс — для ленты это снова новый тариф.
+          changes.push({
+            planId: found.id,
+            kind,
+            oldPrice: kind === "NEW" ? null : found.priceMonthly,
+            newPrice: row.priceMonthly,
+          });
+          if (kind !== "NEW") summary.pricesChanged++;
+        }
       } else {
         const created = await prisma.plan.create({
           data: { ...data, providerId, options: { create: row.options } },
@@ -350,14 +369,24 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
         });
         listed.add(created.id);
         summary.plansCreated++;
+        if (!firstLoad) {
+          changes.push({ planId: created.id, kind: "NEW", oldPrice: null, newPrice: row.priceMonthly });
+        }
       }
     }
 
-    const stale = existing.filter((p) => p.isActive && !listed.has(p.id)).map((p) => p.id);
+    const stale = existing.filter((p) => p.isActive && !listed.has(p.id));
     if (stale.length > 0) {
-      await prisma.plan.updateMany({ where: { id: { in: stale } }, data: { isActive: false } });
+      await prisma.plan.updateMany({
+        where: { id: { in: stale.map((p) => p.id) } },
+        data: { isActive: false },
+      });
       summary.plansHidden += stale.length;
+      for (const p of stale) {
+        changes.push({ planId: p.id, kind: "REMOVED", oldPrice: p.priceMonthly, newPrice: null });
+      }
     }
+    if (changes.length > 0) await prisma.priceChange.createMany({ data: changes });
   }
 
   return summary;

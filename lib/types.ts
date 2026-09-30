@@ -28,6 +28,15 @@ export type PlanView = {
   erid: string | null; // маркировка рекламы
   description: string | null;
   options: { label: string; value: string }[];
+  priceChange?: PriceChangeView | null; // подорожал или подешевел недавно
+};
+
+/** Последнее изменение цены для карточки тарифа: направление, было, стало, когда. */
+export type PriceChangeView = {
+  kind: "UP" | "DOWN";
+  oldPrice: number;
+  newPrice: number;
+  at: string; // ISO-строка: карточки рендерятся и в клиентских компонентах
 };
 
 export type ProviderGroup = {

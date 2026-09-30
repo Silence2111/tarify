@@ -1,5 +1,5 @@
 import { amountText } from "@/lib/catalog-filter";
-import { formatRub } from "@/lib/format";
+import { formatRub, formatShortDate } from "@/lib/format";
 import type { PlanView } from "@/lib/types";
 import { LeadForm } from "./LeadForm";
 
@@ -64,6 +64,17 @@ export function PlanCard({
           {plan.priceFirst != null && plan.priceFirst < plan.priceMonthly && (
             <div className="mt-1 text-xs font-medium text-green-600">
               {formatRub(plan.priceFirst)} за первый месяц
+            </div>
+          )}
+          {plan.priceChange && (
+            <div
+              className={`mt-1 text-xs ${
+                plan.priceChange.kind === "UP" ? "text-amber-700" : "text-green-700"
+              }`}
+            >
+              {plan.priceChange.kind === "UP" ? "подорожал" : "подешевел"} на{" "}
+              {formatRub(Math.abs(plan.priceChange.newPrice - plan.priceChange.oldPrice))} ·{" "}
+              {formatShortDate(plan.priceChange.at)}
             </div>
           )}
           {priceNote && (

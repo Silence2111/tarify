@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({
   provider: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   plan: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+  priceChange: { createMany: vi.fn() },
 }));
 vi.mock("@/lib/db", () => ({ prisma: db }));
 
@@ -157,7 +158,7 @@ describe("загрузка прайса в БД", () => {
   it("при ошибке в файле в БД не пишется ничего", async () => {
     const summary = await importPlansCsv(csv("mts,,,Тариф,600,,,,,,,", "mts,,,Тариф 2,дорого,,,,,,,"));
     expect(summary.errors).toHaveLength(1);
-    for (const table of [db.provider, db.plan]) {
+    for (const table of [db.provider, db.plan, db.priceChange]) {
       for (const fn of Object.values(table)) expect(fn).not.toHaveBeenCalled();
     }
   });
@@ -188,8 +189,8 @@ describe("загрузка прайса в БД", () => {
   it("прайс целиком: тариф из файла обновляется и включается, пропавший — скрывается", async () => {
     db.provider.findUnique.mockResolvedValue({ id: "rt" });
     db.plan.findMany.mockResolvedValue([
-      { id: "p-keep", name: "Технологии общения 100", isActive: false },
-      { id: "p-gone", name: "Игровой 500 + ТВ", isActive: true },
+      { id: "p-keep", name: "Технологии общения 100", isActive: false, priceMonthly: 600 },
+      { id: "p-gone", name: "Игровой 500 + ТВ", isActive: true, priceMonthly: 900 },
     ]);
 
     const summary = await importPlansCsv(
@@ -220,10 +221,10 @@ describe("загрузка прайса в БД", () => {
     db.plan.findMany.mockImplementation(async ({ where }) =>
       where.region === "Москва"
         ? [
-            { id: "msk-keep", name: "Базовый 20", isActive: true },
-            { id: "msk-gone", name: "Старый", isActive: true },
+            { id: "msk-keep", name: "Базовый 20", isActive: true, priceMonthly: 450 },
+            { id: "msk-gone", name: "Старый", isActive: true, priceMonthly: 300 },
           ]
-        : [{ id: "kzn", name: "Базовый 20", isActive: true }],
+        : [{ id: "kzn", name: "Базовый 20", isActive: true, priceMonthly: 360 }],
     );
 
     const summary = await importPlansCsv("provider,plan,price,region,type\nmts,Базовый 20,470,Москва,MOBILE");
@@ -235,6 +236,50 @@ describe("загрузка прайса в БД", () => {
       data: { isActive: false },
     });
     expect(summary).toMatchObject({ plansUpdated: 1, plansHidden: 1 });
+  });
+
+  it("история цен: подорожание, снижение, новый и снятый тариф", async () => {
+    db.provider.findUnique.mockResolvedValue({ id: "mts" });
+    db.plan.findMany.mockResolvedValue([
+      { id: "up", name: "Базовый 20", isActive: true, priceMonthly: 450 },
+      { id: "down", name: "Оптимальный 40", isActive: true, priceMonthly: 750 },
+      { id: "same", name: "Безлимитный", isActive: true, priceMonthly: 1100 },
+      { id: "gone", name: "Старый", isActive: true, priceMonthly: 300 },
+    ]);
+
+    const summary = await importPlansCsv(
+      "provider,plan,price,region,type\n" +
+        "mts,Базовый 20,500,Москва,MOBILE\n" +
+        "mts,Оптимальный 40,700,Москва,MOBILE\n" +
+        "mts,Безлимитный,1100,Москва,MOBILE\n" +
+        "mts,Новый 60,900,Москва,MOBILE",
+    );
+
+    expect(db.priceChange.createMany).toHaveBeenCalledWith({
+      data: [
+        { planId: "up", kind: "UP", oldPrice: 450, newPrice: 500 },
+        { planId: "down", kind: "DOWN", oldPrice: 750, newPrice: 700 },
+        { planId: "created:Новый 60", kind: "NEW", oldPrice: null, newPrice: 900 },
+        { planId: "gone", kind: "REMOVED", oldPrice: 300, newPrice: null },
+      ],
+    });
+    expect(summary.pricesChanged).toBe(2);
+  });
+
+  it("первая загрузка прайса — не новость; вернувшийся скрытый тариф — новый", async () => {
+    db.provider.findUnique.mockResolvedValue({ id: "t2" });
+    db.plan.findMany.mockResolvedValueOnce([]);
+    await importPlansCsv("provider,plan,price\nt2,Базовый 30,450");
+    expect(db.priceChange.createMany).not.toHaveBeenCalled();
+
+    db.plan.findMany.mockResolvedValueOnce([
+      { id: "back", name: "Базовый 30", isActive: false, priceMonthly: 400 },
+    ]);
+    const summary = await importPlansCsv("provider,plan,price\nt2,Базовый 30,450");
+    expect(db.priceChange.createMany).toHaveBeenCalledWith({
+      data: [{ planId: "back", kind: "NEW", oldPrice: null, newPrice: 450 }],
+    });
+    expect(summary.pricesChanged).toBe(0);
   });
 
   it("пустые provider_name и payout не трогают карточку провайдера", async () => {

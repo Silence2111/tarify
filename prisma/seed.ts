@@ -144,6 +144,7 @@ async function main() {
   await prisma.lead.deleteMany();
   await prisma.coverage.deleteMany();
   await prisma.planOption.deleteMany();
+  await prisma.priceChange.deleteMany();
   await prisma.plan.deleteMany();
   await prisma.building.deleteMany();
   await prisma.street.deleteMany();
@@ -240,6 +241,43 @@ async function main() {
     }
   }
 
+  // Демо-история цен: лента «Изменения цен» и пометки «подорожал/подешевел» на карточках.
+  // На проде историю пишет импорт прайса.
+  console.log("История цен...");
+  const DAY = 24 * 60 * 60 * 1000;
+  const yota = providerId["yota"];
+  if (yota) {
+    await prisma.plan.create({
+      data: {
+        providerId: yota, type: "MOBILE", name: "Конструктор 10", priceMonthly: 300, isActive: false,
+        hasMobile: true, mobileGb: 10, minutes: 200, esim: true, region: "Москва",
+      },
+    });
+  }
+  const CHANGES: { slug: string; plan: string; region: string | null; kind: "UP" | "DOWN" | "NEW" | "REMOVED"; old?: number; daysAgo: number }[] = [
+    { slug: "t2", plan: "Расширенный 50", region: "Москва", kind: "NEW", daysAgo: 3 },
+    { slug: "mts", plan: "Базовый 20", region: "Москва", kind: "UP", old: 400, daysAgo: 6 },
+    { slug: "mts", plan: "Базовый 20", region: "Татарстан", kind: "UP", old: 330, daysAgo: 6 },
+    { slug: "megafon", plan: "Максимум 60", region: "Москва", kind: "UP", old: 890, daysAgo: 12 },
+    { slug: "yota", plan: "Конструктор 10", region: "Москва", kind: "REMOVED", old: 300, daysAgo: 12 },
+    { slug: "beeline", plan: "Базовый 25", region: "Москва", kind: "DOWN", old: 550, daysAgo: 20 },
+    { slug: "rostelecom", plan: "Технологии общения 100", region: null, kind: "UP", old: 550, daysAgo: 25 },
+  ];
+  for (const c of CHANGES) {
+    const plan = await prisma.plan.findFirst({
+      where: { provider: { slug: c.slug }, name: c.plan, region: c.region },
+    });
+    if (!plan) continue;
+    await prisma.priceChange.create({
+      data: {
+        planId: plan.id, kind: c.kind,
+        oldPrice: c.kind === "NEW" ? null : (c.old ?? null),
+        newPrice: c.kind === "REMOVED" ? null : plan.priceMonthly,
+        createdAt: new Date(Date.now() - c.daysAgo * DAY),
+      },
+    });
+  }
+
   // Демо-заявки для непустой админки.
   const someBuilding = await prisma.building.findFirst({ include: { street: { include: { city: true } } } });
   const somePlan = await prisma.plan.findFirst({ where: { type: { in: ["INTERNET", "BUNDLE"] } } });
@@ -262,6 +300,7 @@ async function main() {
     улиц: await prisma.street.count(),
     домов: await prisma.building.count(),
     покрытий: await prisma.coverage.count(),
+    'изменений цен': await prisma.priceChange.count(),
   });
 }
 

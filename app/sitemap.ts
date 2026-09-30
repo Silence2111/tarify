@@ -3,6 +3,7 @@ import { getCatalogPlans, getCatalogRegions } from "@/lib/catalog";
 import { pickRegion } from "@/lib/catalog-filter";
 import { collectionPlans, MIN_INDEXABLE, MOBILE_COLLECTIONS } from "@/lib/collections";
 import { prisma } from "@/lib/db";
+import { FEED_MIN_INDEXABLE, getPriceChanges } from "@/lib/price-history";
 import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (collectionPlans(c, mobilePlans).length >= MIN_INDEXABLE) {
       urls.push({ url: `${base}/mobile/podborka/${c.slug}`, changeFrequency: "weekly", priority: 0.6 });
     }
+  }
+  // Лента изменений цен — как и подборки, только непустая (иначе она noindex).
+  if ((await getPriceChanges({ take: FEED_MIN_INDEXABLE })).length >= FEED_MIN_INDEXABLE) {
+    urls.push({ url: `${base}/izmeneniya-cen`, changeFrequency: "daily", priority: 0.6 });
   }
   for (const c of cities) {
     urls.push({ url: `${base}/${c.slug}`, changeFrequency: "weekly", priority: 0.8 });
