@@ -2,9 +2,14 @@ export function formatRub(value: number): string {
   return new Intl.NumberFormat("ru-RU").format(value) + " ₽";
 }
 
-/** «30 сентября 2026 г.» */
+/** «30 сентября 2026 г.» — по Москве, как и остальные даты сайта (сервер Vercel живёт в UTC). */
 export function formatDate(d: Date): string {
-  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  return d.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Moscow",
+  });
 }
 
 const MONTHS = [

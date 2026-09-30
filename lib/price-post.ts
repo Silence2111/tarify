@@ -14,10 +14,12 @@ function line(c: ImportedPriceChange): string {
   const plan = `«${escapeHtml(c.plan)}»`;
   switch (c.kind) {
     case "UP":
-    case "DOWN":
+    case "DOWN": {
+      const pct = changePercent(c.oldPrice ?? 0, c.newPrice ?? 0); // с 0 ₽ процента нет
       return `${plan} ${c.kind === "UP" ? "подорожал" : "подешевел"}: ${formatRub(c.oldPrice ?? 0)} → ${formatRub(
         c.newPrice ?? 0,
-      )} (${changePercent(c.oldPrice ?? 0, c.newPrice ?? 0)})`;
+      )}${pct ? ` (${pct})` : ""}`;
+    }
     case "NEW":
       return `${plan} — новый тариф, ${formatRub(c.newPrice ?? 0)}`;
     case "REMOVED":

@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Слой БД мокаем, как в plans-import.test.ts.
 const db = vi.hoisted(() => ({
-  click: { findUnique: vi.fn(), update: vi.fn() },
-  lead: { findUnique: vi.fn(), update: vi.fn() },
+  click: { findUnique: vi.fn(), updateMany: vi.fn() },
+  lead: { findUnique: vi.fn(), updateMany: vi.fn() },
 }));
 vi.mock("@/lib/db", () => ({ prisma: db }));
 
@@ -21,6 +21,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.click.findUnique.mockResolvedValue(null);
   db.lead.findUnique.mockResolvedValue(null);
+  db.click.updateMany.mockResolvedValue({ count: 1 });
+  db.lead.updateMany.mockResolvedValue({ count: 1 });
 });
 
 describe("постбэк", () => {
@@ -41,8 +43,8 @@ describe("постбэк", () => {
     db.click.findUnique.mockResolvedValue({ id: "c1", status: null });
     const r = await applyPostback(params("sub1=c1&status=Check&payout=360.00&network=pampadu"));
     expect(r).toEqual({ ok: true, target: "click", applied: true });
-    expect(db.click.update).toHaveBeenCalledWith({
-      where: { id: "c1" },
+    expect(db.click.updateMany).toHaveBeenCalledWith({
+      where: { id: "c1", OR: [{ status: null }, { status: { in: ["PENDING", "HOLD"] } }] },
       data: expect.objectContaining({
         status: "HOLD",
         statusRaw: "Check",
@@ -57,7 +59,8 @@ describe("постбэк", () => {
     db.lead.findUnique.mockResolvedValue({ id: "l1", status: "CALLED", networkStatus: "HOLD" });
     const r = await applyPostback(params("subid=l1&status=approved&payout=1 800"));
     expect(r).toEqual({ ok: true, target: "lead", applied: true });
-    expect(db.lead.update).toHaveBeenCalledWith({
+    expect(db.lead.updateMany).toHaveBeenCalledWith({
+      // «одобрено» — итоговый статус: пишется при любом текущем.
       where: { id: "l1" },
       data: expect.objectContaining({
         status: "CONFIRMED",
@@ -71,7 +74,7 @@ describe("постбэк", () => {
   it("заявка: «в обработке» делает новую заявку «в работе», сумму без значения не трогает", async () => {
     db.lead.findUnique.mockResolvedValue({ id: "l2", status: "NEW", networkStatus: null });
     await applyPostback(params("subid=l2&status=pending"));
-    const data = db.lead.update.mock.calls[0][0].data;
+    const data = db.lead.updateMany.mock.calls[0][0].data;
     expect(data).toMatchObject({ status: "CALLED", networkStatus: "PENDING" });
     expect(data).not.toHaveProperty("payoutRub");
   });
@@ -85,7 +88,19 @@ describe("постбэк", () => {
     });
     db.click.findUnique.mockResolvedValue({ id: "c2", status: "APPROVED" });
     expect(await applyPostback(params("subid=c2&status=hold"))).toMatchObject({ applied: false });
-    expect(db.lead.update).not.toHaveBeenCalled();
-    expect(db.click.update).not.toHaveBeenCalled();
+    expect(db.lead.updateMany).not.toHaveBeenCalled();
+    expect(db.click.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("гонка: итоговый статус успел записаться раньше — промежуточный не ложится поверх", async () => {
+    // Проверка при чтении прошла (в базе ещё HOLD), но UPDATE с условием не нашёл строку:
+    // одновременный «approved» записался первым.
+    db.click.findUnique.mockResolvedValue({ id: "c3", status: "HOLD" });
+    db.click.updateMany.mockResolvedValue({ count: 0 });
+    expect(await applyPostback(params("subid=c3&status=pending"))).toEqual({
+      ok: true,
+      target: "click",
+      applied: false,
+    });
   });
 });

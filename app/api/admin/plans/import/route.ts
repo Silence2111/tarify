@@ -1,7 +1,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { importPlansCsv } from "@/lib/plans-import";
 import { priceChangesPost } from "@/lib/price-post";
-import { siteUrl } from "@/lib/site";
+import { isDemo, siteUrl } from "@/lib/site";
 import { sendTelegram } from "@/lib/telegram";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Пустой CSV" }, { status: 400 });
   }
 
-  const summary = await importPlansCsv(csv);
+  // В демо-режиме история цен не пишется: первый реальный прайс поверх демо-тарифов
+  // дал бы в ленте и в канале выдуманные «подорожания».
+  let summary;
+  try {
+    summary = await importPlansCsv(csv, { history: !isDemo() });
+  } catch (e) {
+    console.error("Импорт тарифов:", e);
+    return NextResponse.json(
+      { error: "Не удалось записать прайс в базу — попробуйте ещё раз. Частично он не применился." },
+      { status: 500 },
+    );
+  }
   if (summary.errors.length > 0) {
     return NextResponse.json(
       { error: "В файле есть ошибки — ничего не загружено", ...summary },

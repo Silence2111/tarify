@@ -42,7 +42,7 @@ export async function MobileCatalog({
   const [regionPlans, providers, updatedAt, operatorChanges] = await Promise.all([
     getCatalogPlans("MOBILE", { region, providerSlug: operator?.slug }),
     getCatalogProviders("MOBILE"),
-    getCatalogUpdatedAt("MOBILE", region),
+    getCatalogUpdatedAt("MOBILE", region, operator?.slug),
     // На странице оператора — его изменения цен за год: «МТС повысил цены» ищут часто.
     operator
       ? getPriceChanges({ types: ["MOBILE"], providerSlug: operator.slug, region, days: 365, take: 5 })

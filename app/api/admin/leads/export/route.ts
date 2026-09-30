@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { csvCell } from "@/lib/csv";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -7,11 +8,6 @@ export const dynamic = "force-dynamic";
 // По умолчанию — только подтверждённые (за них платит провайдер). ?status=ALL — все.
 // id — метка subid для передачи заявки в сеть: по ней постбэк вернёт статус.
 const STATUSES = ["NEW", "CALLED", "CONFIRMED", "REJECTED"] as const;
-
-function csvCell(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 export async function GET(req: NextRequest) {
   const statusParam = req.nextUrl.searchParams.get("status") ?? "CONFIRMED";

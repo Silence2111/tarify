@@ -5,6 +5,7 @@ import {
   meetsAtLeast,
   NO_FILTERS,
   pickRegion,
+  preferRegional,
 } from "@/lib/catalog-filter";
 import type { CatalogPlan } from "@/lib/types";
 
@@ -94,5 +95,21 @@ describe("подписи количеств", () => {
     expect(amountText(30, "ГБ")).toBe("30 ГБ");
     expect(amountText(-1, "мин")).toBe("безлимит");
     expect(amountText(null, "SMS")).toBeNull();
+  });
+});
+
+describe("региональная цена важнее единой", () => {
+  it("тариф с тем же названием из прайса региона заменяет тариф с единой ценой", () => {
+    const plans = [
+      { name: "Технологии общения 100", region: null, price: 600, op: "rt" },
+      { name: "Технологии общения 100", region: "Москва", price: 650, op: "rt" },
+      { name: "Гигабит", region: null, price: 1100, op: "rt" },
+      { name: "Технологии общения 100", region: null, price: 590, op: "other" },
+    ];
+    expect(preferRegional(plans, (p) => p.op).map((p) => `${p.op}:${p.price}`)).toEqual([
+      "rt:650",
+      "rt:1100",
+      "other:590",
+    ]);
   });
 });

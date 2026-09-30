@@ -149,6 +149,10 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
   Если Redis недоступен, лимитер тихо откатывается на in-memory, эндпоинты не падают.
 - **Prisma + serverless коннекты.** Обязательно используйте **pooled** строку Neon в `DATABASE_URL`,
   иначе можно упереться в лимит подключений. Миграции — по `DIRECT_URL`.
+- **Регион функций — рядом с базой.** По умолчанию функции Vercel работают в США (`iad1`), и
+  при базе Neon во Франкфурте каждый запрос к базе идёт через океан: страницы медленнее,
+  большой прайс может не уложиться в минуту на импорт. Vercel → Settings → Functions →
+  Function Region: тот же регион, что у Neon (для `eu-central-1` — Frankfurt, `fra1`).
 - **Миграции.** Сейчас используется `prisma db push` (без истории миграций) — ок для MVP.
   Для команды лучше перейти на `prisma migrate` (папка `prisma/migrations`) и в CI гонять
   `prisma migrate deploy`.

@@ -25,7 +25,9 @@ export function PlanCard({
   const minutes = amountText(plan.minutes, "мин");
   const sms = amountText(plan.sms, "SMS");
   // Партнёрская ссылка ведёт на сайт оператора через /go — там записывается
-  // переход с меткой для постбэка. Без ссылки — заявка с обзвоном.
+  // переход с меткой для постбэка. Без ссылки — заявка с обзвоном. Без noreferrer:
+  // /go должен знать, с какой страницы перешли; оператору браузер отдаст только домен
+  // (Referrer-Policy в next.config.mjs).
   const partnerUrl = plan.url && /^https?:\/\//.test(plan.url) ? `/go/${plan.id}` : null;
 
   return (
@@ -88,7 +90,7 @@ export function PlanCard({
             <a
               href={partnerUrl}
               target="_blank"
-              rel="sponsored noopener noreferrer"
+              rel="sponsored noopener"
               className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
             >
               {actionLabel}

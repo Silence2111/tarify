@@ -1,10 +1,22 @@
 import { prisma } from "@/lib/db";
 import {
+  isFinalStatus,
   leadStatusFromConversion,
   parseConversionStatus,
   parsePayout,
   shouldApplyStatus,
+  type ConversionStatus,
 } from "@/lib/partner";
+
+/**
+ * Условие записи: промежуточный статус пишем, только если в базе нет итогового.
+ * Проверка и запись — одним UPDATE: два одновременных постбэка (повтор «pending» и
+ * «approved») иначе оба прошли бы проверку, и «pending» мог бы лечь последним.
+ */
+function notFinalGuard(field: "status" | "networkStatus", incoming: ConversionStatus) {
+  if (isFinalStatus(incoming)) return {};
+  return { OR: [{ [field]: null }, { [field]: { in: ["PENDING", "HOLD"] as ConversionStatus[] } }] };
+}
 
 export type PostbackResult =
   | { ok: true; target: "click" | "lead"; applied: boolean }
@@ -36,8 +48,8 @@ export async function applyPostback(params: URLSearchParams): Promise<PostbackRe
     if (!shouldApplyStatus(click.status, incoming)) {
       return { ok: true, target: "click", applied: false };
     }
-    await prisma.click.update({
-      where: { id: click.id },
+    const { count } = await prisma.click.updateMany({
+      where: { id: click.id, ...notFinalGuard("status", incoming) },
       data: {
         status: incoming,
         statusRaw: statusRaw.slice(0, 50),
@@ -46,7 +58,7 @@ export async function applyPostback(params: URLSearchParams): Promise<PostbackRe
         statusAt: now,
       },
     });
-    return { ok: true, target: "click", applied: true };
+    return { ok: true, target: "click", applied: count > 0 };
   }
 
   const lead = await prisma.lead.findUnique({
@@ -57,8 +69,8 @@ export async function applyPostback(params: URLSearchParams): Promise<PostbackRe
   if (!shouldApplyStatus(lead.networkStatus, incoming)) {
     return { ok: true, target: "lead", applied: false };
   }
-  await prisma.lead.update({
-    where: { id: lead.id },
+  const { count } = await prisma.lead.updateMany({
+    where: { id: lead.id, ...notFinalGuard("networkStatus", incoming) },
     data: {
       status: leadStatusFromConversion(lead.status, incoming),
       networkStatus: incoming,
@@ -68,5 +80,5 @@ export async function applyPostback(params: URLSearchParams): Promise<PostbackRe
       networkAt: now,
     },
   });
-  return { ok: true, target: "lead", applied: true };
+  return { ok: true, target: "lead", applied: count > 0 };
 }

@@ -81,12 +81,13 @@ function Price({ item: i }: { item: FeedItem }) {
     return <span className="text-slate-400">был {i.oldPrice != null ? formatRub(i.oldPrice) : "—"}</span>;
   }
   if (i.oldPrice == null || i.newPrice == null) return null;
+  const pct = changePercent(i.oldPrice, i.newPrice); // с 0 ₽ процента нет
   return (
     <>
-      {formatRub(i.oldPrice)} → {formatRub(i.newPrice)}{" "}
-      <span className={i.kind === "UP" ? "text-amber-700" : "text-green-700"}>
-        ({changePercent(i.oldPrice, i.newPrice)})
-      </span>
+      {formatRub(i.oldPrice)} → {formatRub(i.newPrice)}
+      {pct && (
+        <span className={i.kind === "UP" ? "text-amber-700" : "text-green-700"}> ({pct})</span>
+      )}
     </>
   );
 }

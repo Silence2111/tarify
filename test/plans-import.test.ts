@@ -6,6 +6,8 @@ const db = vi.hoisted(() => ({
   provider: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   plan: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   priceChange: { createMany: vi.fn() },
+  // Транзакция в тестах — тот же мок: проверяем, что и в каком порядке пишется.
+  $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(db)),
 }));
 vi.mock("@/lib/db", () => ({ prisma: db }));
 
@@ -148,6 +150,15 @@ describe("разбор прайса", () => {
   });
 });
 
+describe("номера строк в ошибках", () => {
+  it("считаются по файлу: пустые строки и переносы внутри кавычек не сдвигают номер", () => {
+    const { errors } = parsePlansCsv(
+      'provider,plan,price,description\nmts,A,100,"две\nстроки"\n\nmts,B,дорого,',
+    );
+    expect(errors).toEqual([{ line: 5, message: expect.stringContaining("price") }]);
+  });
+});
+
 describe("загрузка прайса в БД", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -230,7 +241,11 @@ describe("загрузка прайса в БД", () => {
     const summary = await importPlansCsv("provider,plan,price,region,type\nmts,Базовый 20,470,Москва,MOBILE");
 
     expect(db.plan.findMany).toHaveBeenCalledTimes(1);
-    expect(db.plan.findMany.mock.calls[0][0].where).toEqual({ providerId: "mts", region: "Москва" });
+    expect(db.plan.findMany.mock.calls[0][0].where).toEqual({
+      providerId: "mts",
+      region: "Москва",
+      type: { in: ["MOBILE"] },
+    });
     expect(db.plan.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["msk-gone"] } },
       data: { isActive: false },
@@ -287,6 +302,50 @@ describe("загрузка прайса в БД", () => {
       data: [{ planId: "back", kind: "NEW", oldPrice: null, newPrice: 450 }],
     });
     expect(summary.pricesChanged).toBe(0);
+  });
+
+  it("прайс мобильной связи не трогает домашний интернет того же провайдера", async () => {
+    db.provider.findUnique.mockResolvedValue({ id: "rt", name: "Ростелеком" });
+    // В базе домашние тарифы Ростелекома без региона; грузим его мобильные — тоже без региона.
+    db.plan.findMany.mockImplementation(async ({ where }) =>
+      where.type.in.includes("MOBILE") ? [] : [{ id: "home", name: "Технологии общения 100", isActive: true, priceMonthly: 600 }],
+    );
+
+    const summary = await importPlansCsv("provider,plan,price,type\nrostelecom,Мобильный 20,350,MOBILE");
+
+    expect(db.plan.findMany.mock.calls[0][0].where).toEqual({
+      providerId: "rt",
+      region: null,
+      type: { in: ["MOBILE"] },
+    });
+    expect(db.plan.updateMany).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({ plansCreated: 1, plansHidden: 0 });
+  });
+
+  it("домашние типы — один раздел: тариф из INTERNET в BUNDLE обновляется, а не дублируется", async () => {
+    db.provider.findUnique.mockResolvedValue({ id: "rt" });
+    db.plan.findMany.mockResolvedValue([
+      { id: "p1", name: "Всё в одном", isActive: true, priceMonthly: 900 },
+    ]);
+    await importPlansCsv("provider,plan,price,type\nrostelecom,Всё в одном,900,BUNDLE");
+    expect(db.plan.findMany.mock.calls[0][0].where.type).toEqual({ in: ["INTERNET", "TV", "BUNDLE"] });
+    expect(db.plan.update).toHaveBeenCalledTimes(1);
+    expect(db.plan.create).not.toHaveBeenCalled();
+  });
+
+  it("без истории (первый реальный прайс поверх демо) — цены обновляются, лента молчит", async () => {
+    db.provider.findUnique.mockResolvedValue({ id: "mts" });
+    db.plan.findMany.mockResolvedValue([
+      { id: "demo", name: "Базовый 20", isActive: true, priceMonthly: 450 },
+      { id: "demo-only", name: "Демо-тариф", isActive: true, priceMonthly: 300 },
+    ]);
+    const summary = await importPlansCsv("provider,plan,price\nmts,Базовый 20,650", { history: false });
+    expect(db.plan.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ priceMonthly: 650 }) }),
+    );
+    expect(db.plan.updateMany).toHaveBeenCalled(); // демо-тариф скрыт
+    expect(db.priceChange.createMany).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({ pricesChanged: 0, changes: [] });
   });
 
   it("пустые provider_name и payout не трогают карточку провайдера", async () => {

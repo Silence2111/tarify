@@ -51,6 +51,16 @@ describe("пост об изменениях цен", () => {
     );
   });
 
+  it("с 0 ₽ — без процентов и без пустых скобок", () => {
+    const post = priceChangesPost(
+      [change({ provider: "Т-Банк", plan: "Старт", region: null, oldPrice: 0, newPrice: 490 })],
+      "https://tarify.ru",
+      NOW,
+    )!.replace(/\u00a0/g, " ");
+    expect(post).toContain("«Старт» подорожал: 0 ₽ → 490 ₽\n");
+    expect(post).not.toContain("()");
+  });
+
   it("нет изменений — нет поста", () => {
     expect(priceChangesPost([], "https://tarify.ru", NOW)).toBeNull();
   });

@@ -4,6 +4,7 @@ import { formatRub, plural } from "@/lib/format";
 import { HOME_PLAN_TYPES, type PlanType } from "@/lib/types";
 import { AdminNav } from "@/components/AdminNav";
 import { PlansImport } from "@/components/PlansImport";
+import { isDemo } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,8 @@ export default async function PlansPage() {
         {process.env.TELEGRAM_CHANNEL_ID && process.env.TELEGRAM_BOT_TOKEN
           ? ` и постом в Telegram-канал ${process.env.TELEGRAM_CHANNEL_ID}.`
           : " (пост в Telegram-канал — если задать TELEGRAM_BOT_TOKEN и TELEGRAM_CHANNEL_ID)."}
+        {isDemo() &&
+          " Пока включён демо-режим, изменения цен не записываются: первый реальный прайс поверх демо-тарифов — не новость. Выключите его (NEXT_PUBLIC_DEMO=0), когда зальёте реальные прайсы."}
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

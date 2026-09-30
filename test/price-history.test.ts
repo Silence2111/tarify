@@ -36,7 +36,7 @@ describe("изменение цены", () => {
 describe("пометка на карточке", () => {
   it("свежее изменение показывается", () => {
     expect(
-      recentPriceChange([{ kind: "UP", oldPrice: 400, newPrice: 450, createdAt: daysAgo(10) }], NOW),
+      recentPriceChange([{ kind: "UP", oldPrice: 400, newPrice: 450, createdAt: daysAgo(10) }], 450, NOW),
     ).toEqual({ kind: "UP", oldPrice: 400, newPrice: 450, at: daysAgo(10).toISOString() });
   });
 
@@ -44,14 +44,21 @@ describe("пометка на карточке", () => {
     expect(
       recentPriceChange(
         [{ kind: "DOWN", oldPrice: 500, newPrice: 450, createdAt: daysAgo(RECENT_DAYS + 1) }],
+        450,
         NOW,
       ),
     ).toBeNull();
     expect(
-      recentPriceChange([{ kind: "NEW", oldPrice: null, newPrice: 450, createdAt: daysAgo(1) }], NOW),
+      recentPriceChange([{ kind: "NEW", oldPrice: null, newPrice: 450, createdAt: daysAgo(1) }], 450, NOW),
     ).toBeNull();
-    expect(recentPriceChange([], NOW)).toBeNull();
-    expect(recentPriceChange(undefined, NOW)).toBeNull();
+    expect(recentPriceChange([], 450, NOW)).toBeNull();
+    expect(recentPriceChange(undefined, 450, NOW)).toBeNull();
+  });
+
+  it("цена с тех пор другая (сняли и вернули по новой цене) — пометки нет", () => {
+    expect(
+      recentPriceChange([{ kind: "UP", oldPrice: 500, newPrice: 600, createdAt: daysAgo(10) }], 450, NOW),
+    ).toBeNull();
   });
 });
 
@@ -70,5 +77,14 @@ describe("сводка ленты", () => {
 
   it("без подорожаний средний процент не считается", () => {
     expect(feedStats([]).avgUpPercent).toBeNull();
+  });
+
+  it("бесплатный стал платным — подорожание в счёт, но не в средний процент", () => {
+    expect(
+      feedStats([
+        { kind: "UP", oldPrice: 0, newPrice: 490 },
+        { kind: "UP", oldPrice: 500, newPrice: 550 },
+      ]),
+    ).toMatchObject({ up: 2, avgUpPercent: 10 });
   });
 });

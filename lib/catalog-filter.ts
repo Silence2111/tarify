@@ -50,6 +50,19 @@ export function filterCatalogPlans(plans: CatalogPlan[], f: CatalogFilters): Cat
 }
 
 /**
+ * Региональная цена важнее единой: если у провайдера есть тариф с тем же названием в
+ * прайсе региона, тариф с единой ценой по России в этом регионе не показываем — иначе
+ * один тариф висел бы дважды по разной цене. owner — чей тариф (в общих списках).
+ */
+export function preferRegional<T extends { name: string; region: string | null }>(
+  plans: T[],
+  owner: (p: T) => string = () => "",
+): T[] {
+  const regional = new Set(plans.filter((p) => p.region).map((p) => `${owner(p)}\n${p.name}`));
+  return plans.filter((p) => p.region || !regional.has(`${owner(p)}\n${p.name}`));
+}
+
+/**
  * Какой регион показать. Запрошенный — если в нём есть тарифы, иначе Москва,
  * иначе первый по алфавиту. null — регионов нет, только тарифы с единой ценой.
  */

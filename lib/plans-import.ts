@@ -1,8 +1,8 @@
 import type { Prisma } from "@prisma/client";
-import { parseCsv } from "@/lib/csv";
+import { parseCsvLines } from "@/lib/csv";
 import { prisma } from "@/lib/db";
 import { priceChangeKind } from "@/lib/price-history";
-import { UNLIMITED, type PlanView } from "@/lib/types";
+import { HOME_PLAN_TYPES, UNLIMITED, type PlanView } from "@/lib/types";
 
 // Импорт тарифов из CSV — прайс провайдеров: что в файле, то и на сайте.
 // Одна строка — один тариф. Обязательные колонки: provider, plan, price.
@@ -10,9 +10,10 @@ import { UNLIMITED, type PlanView } from "@/lib/types";
 // mobile), minutes, sms, esim, region, url, erid, type, description, options.
 // Формат — data/PLANS.md.
 //
-// Прайс привязан к паре «провайдер + регион»: мобильные тарифы в каждом регионе
-// стоят по-своему, и прайс Москвы не должен трогать тарифы Казани. Для каждой
-// такой пары из файла:
+// Прайс привязан к тройке «провайдер + регион + раздел»: мобильные тарифы в каждом
+// регионе стоят по-своему, и прайс Москвы не должен трогать тарифы Казани; а прайс
+// мобильной связи Ростелекома — его домашний интернет (раздел — домашний интернет,
+// мобильная связь или счета для бизнеса, по колонке type). Для каждой тройки из файла:
 //  - тариф узнаётся по названию: есть — обновляется, нет — создаётся;
 //  - её тарифы, которых в файле нет, скрываются (isActive = false), а не
 //    удаляются: на них ссылаются заявки;
@@ -26,6 +27,12 @@ import { UNLIMITED, type PlanView } from "@/lib/types";
 
 type PlanType = PlanView["type"];
 const PLAN_TYPES: readonly PlanType[] = ["INTERNET", "TV", "MOBILE", "BUNDLE", "BUSINESS_ACCOUNT"];
+
+/** Раздел сайта, к которому относится тип тарифа: у каждого раздела свой прайс. */
+export function planSection(type: PlanType): readonly PlanType[] {
+  return (HOME_PLAN_TYPES as readonly PlanType[]).includes(type) ? HOME_PLAN_TYPES : [type];
+}
+const sectionKey = (type: PlanType) => planSection(type).join("+");
 
 export type PlanRow = {
   line: number;
@@ -144,7 +151,8 @@ export function parsePlansCsv(text: string): { rows: PlanRow[]; errors: ImportEr
   const rows: PlanRow[] = [];
   const errors: ImportError[] = [];
 
-  const grid = parseCsv(text);
+  const records = parseCsvLines(text);
+  const grid = records.map((r) => r.cells);
   if (grid.length < 2) {
     errors.push({ line: 0, message: "Пустой CSV или нет строк данных" });
     return { rows, errors };
@@ -188,7 +196,7 @@ export function parsePlansCsv(text: string): { rows: PlanRow[]; errors: ImportEr
   const cell = (cells: string[], idx: number) => (idx >= 0 ? (cells[idx] ?? "").trim() : "");
 
   for (let r = 1; r < grid.length; r++) {
-    const line = r + 1;
+    const line = records[r].line;
     const cells = grid[r];
     try {
       const provider = cell(cells, ci.provider).toLowerCase();
@@ -242,7 +250,7 @@ export function parsePlansCsv(text: string): { rows: PlanRow[]; errors: ImportEr
   const firstPlan = new Map<string, number>();
   const firstValue = new Map<string, { value: string | number; line: number }>();
   for (const row of rows) {
-    const planKey = `${row.provider}\n${row.region ?? ""}\n${row.name}`;
+    const planKey = `${row.provider}\n${row.region ?? ""}\n${sectionKey(row.type)}\n${row.name}`;
     const planLine = firstPlan.get(planKey);
     if (planLine) {
       const where = row.region ? ` (${row.region})` : "";
@@ -273,7 +281,12 @@ export function parsePlansCsv(text: string): { rows: PlanRow[]; errors: ImportEr
   return { rows, errors };
 }
 
-export async function importPlansCsv(text: string): Promise<PlansImportSummary> {
+export async function importPlansCsv(
+  text: string,
+  // history: false — не писать историю цен. Так грузят первый реальный прайс поверх
+  // демо-данных: разница с выдуманными ценами — не новость для ленты и канала.
+  { history = true }: { history?: boolean } = {},
+): Promise<PlansImportSummary> {
   const { rows, errors } = parsePlansCsv(text);
   const summary: PlansImportSummary = {
     rows: rows.length,
@@ -315,109 +328,129 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
     providerIds.set(slug, provider.id);
   }
 
-  // Прайсы: по паре «провайдер + регион».
+  // Прайсы: по тройке «провайдер + регион + раздел». Каждая — одной транзакцией:
+  // оборванная на середине загрузка (таймаут функции, сбой базы) не оставит
+  // наполовину обновлённый прайс и не потеряет историю цен при повторной загрузке.
   const scopes = new Map<string, PlanRow[]>();
   for (const row of rows) {
-    const key = `${row.provider}\n${row.region ?? ""}`;
+    const key = `${row.provider}\n${row.region ?? ""}\n${sectionKey(row.type)}`;
     const list = scopes.get(key);
     if (list) list.push(row);
     else scopes.set(key, [row]);
   }
 
   for (const plans of scopes.values()) {
-    const providerId = providerIds.get(plans[0].provider)!;
-    const region = plans[0].region;
+    await prisma.$transaction(
+      (tx) =>
+        importScope(tx, plans, {
+          providerId: providerIds.get(plans[0].provider)!,
+          providerName: providerNames.get(plans[0].provider) ?? plans[0].provider,
+          history,
+          summary,
+        }),
+      { maxWait: 10_000, timeout: 60_000 },
+    );
+  }
 
-    const existing = await prisma.plan.findMany({
-      where: { providerId, region },
-      select: { id: true, name: true, isActive: true, priceMonthly: true },
-    });
-    const byName = new Map(existing.map((p) => [p.name, p]));
-    const listed = new Set<string>();
-    // История цен. Первая загрузка прайса пары — не новость: иначе лента утонет
-    // в «новых тарифах», которые на самом деле просто впервые попали на сайт.
-    const changes: Prisma.PriceChangeCreateManyInput[] = [];
-    const firstLoad = existing.length === 0;
-    const planNames = new Map(existing.map((p) => [p.id, p.name]));
+  return summary;
+}
 
-    for (const row of plans) {
-      const data = {
-        name: row.name,
-        type: row.type,
-        priceMonthly: row.priceMonthly,
-        priceFirst: row.priceFirst,
-        speedMbps: row.speedMbps,
-        hasTv: row.hasTv,
-        tvChannels: row.tvChannels,
-        hasMobile: row.hasMobile,
-        mobileGb: row.mobileGb,
-        minutes: row.minutes,
-        sms: row.sms,
-        esim: row.esim,
-        region: row.region,
-        url: row.url,
-        erid: row.erid,
-        description: row.description,
-        isActive: true,
-      };
-      const found = byName.get(row.name);
-      if (found) {
-        await prisma.plan.update({
-          where: { id: found.id },
-          data: { ...data, options: { deleteMany: {}, create: row.options } },
-        });
-        listed.add(found.id);
-        summary.plansUpdated++;
-        const kind = found.isActive ? priceChangeKind(found.priceMonthly, row.priceMonthly) : "NEW";
-        if (kind) {
-          // Скрытый тариф вернулся в прайс — для ленты это снова новый тариф.
-          changes.push({
-            planId: found.id,
-            kind,
-            oldPrice: kind === "NEW" ? null : found.priceMonthly,
-            newPrice: row.priceMonthly,
-          });
-          if (kind !== "NEW") summary.pricesChanged++;
-        }
-      } else {
-        const created = await prisma.plan.create({
-          data: { ...data, providerId, options: { create: row.options } },
-          select: { id: true },
-        });
-        listed.add(created.id);
-        planNames.set(created.id, row.name);
-        summary.plansCreated++;
-        if (!firstLoad) {
-          changes.push({ planId: created.id, kind: "NEW", oldPrice: null, newPrice: row.priceMonthly });
-        }
-      }
-    }
+/** Прайс одной тройки «провайдер + регион + раздел» — внутри транзакции. */
+async function importScope(
+  tx: Prisma.TransactionClient,
+  plans: PlanRow[],
+  ctx: { providerId: string; providerName: string; history: boolean; summary: PlansImportSummary },
+): Promise<void> {
+  const { providerId, summary } = ctx;
+  const region = plans[0].region;
 
-    const stale = existing.filter((p) => p.isActive && !listed.has(p.id));
-    if (stale.length > 0) {
-      await prisma.plan.updateMany({
-        where: { id: { in: stale.map((p) => p.id) } },
-        data: { isActive: false },
+  const existing = await tx.plan.findMany({
+    where: { providerId, region, type: { in: [...planSection(plans[0].type)] } },
+    select: { id: true, name: true, isActive: true, priceMonthly: true },
+  });
+  const byName = new Map(existing.map((p) => [p.name, p]));
+  const listed = new Set<string>();
+  // История цен. Первая загрузка прайса тройки — не новость: иначе лента утонет
+  // в «новых тарифах», которые на самом деле просто впервые попали на сайт.
+  const changes: Prisma.PriceChangeCreateManyInput[] = [];
+  const firstLoad = existing.length === 0;
+  const planNames = new Map(existing.map((p) => [p.id, p.name]));
+
+  for (const row of plans) {
+    const data = {
+      name: row.name,
+      type: row.type,
+      priceMonthly: row.priceMonthly,
+      priceFirst: row.priceFirst,
+      speedMbps: row.speedMbps,
+      hasTv: row.hasTv,
+      tvChannels: row.tvChannels,
+      hasMobile: row.hasMobile,
+      mobileGb: row.mobileGb,
+      minutes: row.minutes,
+      sms: row.sms,
+      esim: row.esim,
+      region: row.region,
+      url: row.url,
+      erid: row.erid,
+      description: row.description,
+      isActive: true,
+    };
+    const found = byName.get(row.name);
+    if (found) {
+      await tx.plan.update({
+        where: { id: found.id },
+        data: { ...data, options: { deleteMany: {}, create: row.options } },
       });
-      summary.plansHidden += stale.length;
-      for (const p of stale) {
-        changes.push({ planId: p.id, kind: "REMOVED", oldPrice: p.priceMonthly, newPrice: null });
-      }
-    }
-    if (changes.length > 0) {
-      await prisma.priceChange.createMany({ data: changes });
-      for (const c of changes) {
-        summary.changes.push({
-          provider: providerNames.get(plans[0].provider) ?? plans[0].provider,
-          plan: planNames.get(c.planId) ?? "",
-          region,
-          kind: c.kind,
-          oldPrice: c.oldPrice ?? null,
-          newPrice: c.newPrice ?? null,
+      listed.add(found.id);
+      summary.plansUpdated++;
+      const kind = found.isActive ? priceChangeKind(found.priceMonthly, row.priceMonthly) : "NEW";
+      if (kind) {
+        // Скрытый тариф вернулся в прайс — для ленты это снова новый тариф.
+        changes.push({
+          planId: found.id,
+          kind,
+          oldPrice: kind === "NEW" ? null : found.priceMonthly,
+          newPrice: row.priceMonthly,
         });
+        if (kind !== "NEW" && ctx.history) summary.pricesChanged++;
+      }
+    } else {
+      const created = await tx.plan.create({
+        data: { ...data, providerId, options: { create: row.options } },
+        select: { id: true },
+      });
+      listed.add(created.id);
+      planNames.set(created.id, row.name);
+      summary.plansCreated++;
+      if (!firstLoad) {
+        changes.push({ planId: created.id, kind: "NEW", oldPrice: null, newPrice: row.priceMonthly });
       }
     }
   }
 
-  return summary;
+  const stale = existing.filter((p) => p.isActive && !listed.has(p.id));
+  if (stale.length > 0) {
+    await tx.plan.updateMany({
+      where: { id: { in: stale.map((p) => p.id) } },
+      data: { isActive: false },
+    });
+    summary.plansHidden += stale.length;
+    for (const p of stale) {
+      changes.push({ planId: p.id, kind: "REMOVED", oldPrice: p.priceMonthly, newPrice: null });
+    }
+  }
+  if (changes.length > 0 && ctx.history) {
+    await tx.priceChange.createMany({ data: changes });
+    for (const c of changes) {
+      summary.changes.push({
+        provider: ctx.providerName,
+        plan: planNames.get(c.planId) ?? "",
+        region,
+        kind: c.kind,
+        oldPrice: c.oldPrice ?? null,
+        newPrice: c.newPrice ?? null,
+      });
+    }
+  }
 }

@@ -32,6 +32,11 @@ export function parseConversionStatus(raw: string): ConversionStatus {
 
 const FINAL: ReadonlySet<ConversionStatus> = new Set(["APPROVED", "REJECTED"]);
 
+/** Итоговый статус: одобрено или отклонено. */
+export function isFinalStatus(status: ConversionStatus): boolean {
+  return FINAL.has(status);
+}
+
 /**
  * Применять ли статус из постбэка. Постбэки доходят не по порядку — сеть повторяет
  * недоставленные, — и поздний «pending» после «approved» спрятал бы заработанное.

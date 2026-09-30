@@ -1,5 +1,6 @@
+import { preferRegional } from "@/lib/catalog-filter";
 import { prisma } from "@/lib/db";
-import { LATEST_PRICE_CHANGE, recentPriceChange } from "@/lib/price-history";
+import { latestPriceChange, recentPriceChange } from "@/lib/price-history";
 import { HOME_PLAN_TYPES, type PlanView, type ProviderGroup } from "@/lib/types";
 
 // Поля каталогов (минуты, регион, ссылка…) необязательны: строкам покрытия
@@ -44,7 +45,7 @@ export function toPlanView(p: {
     erid: p.erid ?? null,
     description: p.description,
     options: p.options.map((o) => ({ label: o.label, value: o.value })),
-    priceChange: recentPriceChange(p.priceChanges),
+    priceChange: recentPriceChange(p.priceChanges, p.priceMonthly),
   };
 }
 
@@ -52,11 +53,19 @@ export function toPlanView(p: {
 // во всех трёх выборках покрытия, чтобы выдача везде была одинаковой.
 // Только домашние услуги: мобильная связь того же провайдера (МТС, Билайн)
 // живёт в своём каталоге и в выдачу по адресу дома не попадает.
-const activePlansQuery = {
-  where: { isActive: true, type: { in: [...HOME_PLAN_TYPES] } },
-  include: { options: true, priceChanges: LATEST_PRICE_CHANGE },
-  orderBy: { priceMonthly: "asc" as const },
-};
+// Домашние тарифы для города: с ценой его региона или единой ценой (region = null).
+// Прайс Ростелекома для Москвы не должен показываться в Казани.
+function activePlansQuery(region: string | null) {
+  return {
+    where: {
+      isActive: true,
+      type: { in: [...HOME_PLAN_TYPES] },
+      OR: [{ region: null }, ...(region ? [{ region }] : [])],
+    },
+    include: { options: true, priceChanges: latestPriceChange() },
+    orderBy: { priceMonthly: "asc" as const },
+  };
+}
 
 export type CoverageResult = {
   matched: "building" | "street" | "none";
@@ -107,7 +116,7 @@ export function groupByProvider(rows: CoverageRow[]): ProviderGroup[] {
       providerName: c.provider.name,
       providerSlug: c.provider.slug,
       techNote: c.techNote,
-      plans: c.provider.plans.map(toPlanView),
+      plans: preferRegional(c.provider.plans.map(toPlanView)),
     });
   }
 
@@ -166,7 +175,7 @@ export async function findCoverageByAddress(
 
   const coverage = await prisma.coverage.findMany({
     where: { buildingId: { in: buildingIds } },
-    include: { provider: { include: { plans: activePlansQuery } } },
+    include: { provider: { include: { plans: activePlansQuery(city.region) } } },
   });
 
   const groups = groupByProvider(coverage);
@@ -193,7 +202,7 @@ export async function getStreetProviders(citySlug: string, streetSlug: string) {
     buildingIds.length > 0
       ? await prisma.coverage.findMany({
           where: { buildingId: { in: buildingIds } },
-          include: { provider: { include: { plans: activePlansQuery } } },
+          include: { provider: { include: { plans: activePlansQuery(city.region) } } },
         })
       : [];
 
@@ -221,7 +230,7 @@ export async function getCityProviders(citySlug: string) {
       isActive: true,
       coverage: { some: { building: { street: { cityId: city.id } } } },
     },
-    include: { plans: activePlansQuery },
+    include: { plans: activePlansQuery(city.region) },
     orderBy: { name: "asc" },
   });
 
@@ -231,7 +240,7 @@ export async function getCityProviders(citySlug: string) {
       providerName: p.name,
       providerSlug: p.slug,
       techNote: null,
-      plans: p.plans.map(toPlanView),
+      plans: preferRegional(p.plans.map(toPlanView)),
     }))
     .filter((g) => g.plans.length > 0);
 

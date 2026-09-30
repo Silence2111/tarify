@@ -5,7 +5,7 @@ import { plural } from "@/lib/format";
 import {
   FEED_DAYS,
   FEED_MIN_INDEXABLE,
-  feedStats,
+  getPriceChangeStats,
   getPriceChanges,
 } from "@/lib/price-history";
 import { HOME_PLAN_TYPES, type PlanType } from "@/lib/types";
@@ -21,6 +21,8 @@ const SECTIONS: Record<string, { label: string; types: readonly PlanType[] }> = 
 };
 
 type Props = { searchParams: Promise<{ type?: string }> };
+
+const SHOWN = 300;
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { type } = await searchParams;
@@ -39,8 +41,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function PriceChangesPage({ searchParams }: Props) {
   const { type } = await searchParams;
   const section = type ? SECTIONS[type] : undefined;
-  const items = await getPriceChanges({ types: section?.types, take: 300 });
-  const stats = feedStats(items);
+  const [items, stats] = await Promise.all([
+    getPriceChanges({ types: section?.types, take: SHOWN }),
+    getPriceChangeStats({ types: section?.types }),
+  ]);
+  const total = stats.up + stats.down + stats.added + stats.removed;
 
   const summary = [
     stats.up > 0 &&
@@ -92,6 +97,11 @@ export default async function PriceChangesPage({ searchParams }: Props) {
           </div>
         ) : (
           <PriceChangeList items={items} groupByDay />
+        )}
+        {total > items.length && (
+          <p className="mt-3 text-sm text-slate-500">
+            Показаны последние {items.length} из {total} изменений.
+          </p>
         )}
       </div>
 
