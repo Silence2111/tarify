@@ -2,6 +2,44 @@ export function formatRub(value: number): string {
   return new Intl.NumberFormat("ru-RU").format(value) + " ₽";
 }
 
+/** «30 сентября 2026 г.» — по Москве, как и остальные даты сайта (сервер Vercel живёт в UTC). */
+export function formatDate(d: Date): string {
+  return d.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Moscow",
+  });
+}
+
+const MONTHS = [
+  "января", "февраля", "марта", "апреля", "мая", "июня",
+  "июля", "августа", "сентября", "октября", "ноября", "декабря",
+];
+const MONTHS_SHORT = [
+  "янв.", "февр.", "марта", "апр.", "мая", "июня",
+  "июля", "авг.", "сент.", "окт.", "нояб.", "дек.",
+];
+const MSK_OFFSET = 3 * 60 * 60 * 1000; // Москва — UTC+3 круглый год
+
+// Даты по московскому времени и без Intl: одинаково на сервере (UTC на Vercel) и в
+// браузере в любом часовом поясе — карточки тарифов рендерятся и там, и там.
+function moscow(value: Date | string): Date {
+  return new Date(new Date(value).getTime() + MSK_OFFSET);
+}
+
+/** «12 сент.» */
+export function formatShortDate(value: Date | string): string {
+  const d = moscow(value);
+  return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}`;
+}
+
+/** «12 сентября 2026» */
+export function formatDay(value: Date | string): string {
+  const d = moscow(value);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
 const TRANSLIT: Record<string, string> = {
   а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i",
   й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t",

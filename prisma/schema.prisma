@@ -16,8 +16,25 @@ datasource db {
 enum ServiceType {
   INTERNET
   TV
-  MOBILE
+  MOBILE           // каталог мобильной связи: без покрытия, цены по регионам
   BUNDLE
+  BUSINESS_ACCOUNT // расчётный счёт для бизнеса (РКО) — раздел «Для бизнеса»
+}
+
+// Статус конверсии из постбэка CPA-сети.
+enum ConversionStatus {
+  PENDING  // сеть получила действие, решения нет
+  HOLD     // подтверждено, ждёт выплаты (холд)
+  APPROVED // оплачено — это деньги
+  REJECTED // отклонено
+}
+
+// Что случилось с ценой тарифа при загрузке прайса.
+enum PriceChangeKind {
+  NEW     // тариф появился (кроме первой загрузки прайса провайдера в регионе)
+  UP      // подорожал
+  DOWN    // подешевел
+  REMOVED // снят: пропал из прайса
 }
 
 enum LeadStatus {
@@ -39,6 +56,7 @@ model Provider {
   isActive  Boolean    @default(true)
   plans     Plan[]
   coverage  Coverage[]
+  clicks    Click[]
   createdAt DateTime   @default(now())
 }
 
@@ -54,14 +72,49 @@ model Plan {
   hasTv        Boolean      @default(false)
   tvChannels   Int?
   hasMobile    Boolean      @default(false)
-  mobileGb     Int?
+  mobileGb     Int? // ГБ мобильного интернета; -1 — безлимит
+  minutes      Int? // минут в месяц; -1 — безлимит
+  sms          Int? // SMS в месяц; -1 — безлимит
+  esim         Boolean      @default(false)
+  // Регион цены (как City.region). Тарифы мобильной связи в каждом регионе стоят
+  // по-своему; null — цена одна для всей России (и все тарифы домашнего интернета).
+  region       String?
+  // Партнёрская ссылка CPA-сети: кнопка «Оформить» ведёт на сайт оператора вместо
+  // заявки с обзвоном. erid — токен маркировки рекламы от сети (ФЗ «О рекламе»).
+  url          String?
+  erid         String?
   description  String?
   options      PlanOption[]
   leads        Lead[]
+  clicks       Click[]
+  priceChanges PriceChange[]
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
+  // Свежесть цены: повторная загрузка прайса обновляет. Каталоги показывают
+  // «Цены обновлены …» — у конкурентов цены висят месяцами без даты.
+  updatedAt    DateTime     @default(now()) @updatedAt
+  // Когда тариф последний раз пришёл из прайса; null — демо-тариф из сида. По этой
+  // метке «Убрать демо-данные» в админке скрывает то, чего нет в реальных прайсах.
+  importedAt   DateTime?
 
   @@index([providerId])
+  @@index([type, region])
+}
+
+// История цен: импорт прайса записывает каждое изменение. Из неё — лента «Изменения
+// цен» и пометки «подорожал/подешевел» на карточках. Подорожание у оператора — частый
+// повод искать новый тариф, а у конкурентов цены висят без дат и истории.
+model PriceChange {
+  id        String          @id @default(cuid())
+  plan      Plan            @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planId    String
+  kind      PriceChangeKind
+  oldPrice  Int? // ₽/мес до изменения; у нового тарифа — null
+  newPrice  Int? // ₽/мес после; у снятого — null
+  createdAt DateTime        @default(now())
+
+  @@index([createdAt])
+  @@index([planId, createdAt])
 }
 
 // Гибкие опции тарифа (роутер в аренду, статический IP, антивирус и т.п.)
@@ -124,11 +177,33 @@ model Coverage {
   @@index([providerId])
 }
 
+// Переход по партнёрской ссылке («Оформить»). id уходит в CPA-сеть меткой {subid},
+// постбэк сети возвращает её со статусом конверсии и суммой. Так видно, какие
+// операторы и тарифы приносят деньги без заявки с обзвоном.
+model Click {
+  id         String            @id @default(cuid())
+  plan       Plan?             @relation(fields: [planId], references: [id], onDelete: SetNull)
+  planId     String?
+  provider   Provider          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerId String
+  page       String? // откуда перешли: путь страницы сайта
+  status     ConversionStatus? // null — от сети пока ничего не пришло
+  statusRaw  String? // статус как его прислала сеть — на случай незнакомого слова
+  payoutRub  Int? // сумма из постбэка, ₽
+  network    String?
+  statusAt   DateTime?
+  createdAt  DateTime          @default(now())
+
+  @@index([providerId, createdAt])
+  @@index([createdAt])
+}
+
 // Воронка денег: заявка на подключение.
 model Lead {
   id          String     @id @default(cuid())
   name        String
   phone       String
+  company     String? // заявка «интернет в офис» из раздела «Для бизнеса»
   addressText String
   building    Building?  @relation(fields: [buildingId], references: [id])
   buildingId  String?
@@ -138,6 +213,18 @@ model Lead {
   comment     String?
   consent     Boolean    @default(false) // согласие на обработку ПДн (152-ФЗ)
   createdAt   DateTime   @default(now())
+
+  // Постбэк CPA-сети: заявку передали в сеть с её id в метке subid, сеть сама
+  // возвращает статус и сумму. Одобрено → «Подключено», отклонено → «Отказ».
+  networkStatus    ConversionStatus?
+  networkStatusRaw String? // статус как его прислала сеть
+  network          String?
+  networkAt        DateTime?
+  payoutRub        Int? // сумма из постбэка, ₽ — точнее ставки провайдера
+
+  // Передача в CPA-сеть или CRM сразу после заявки (LEAD_WEBHOOK_URL).
+  deliveredAt   DateTime? // принята адресом приёма
+  deliveryError String? // последняя ошибка передачи — видна в админке, можно отправить ещё раз
 
   @@index([status])
   @@index([createdAt])

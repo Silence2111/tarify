@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { csvCell } from "@/lib/csv";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 // Выгрузка лидов в CSV для сверки с CPA-сетью/провайдером.
 // По умолчанию — только подтверждённые (за них платит провайдер). ?status=ALL — все.
+// id — метка subid для передачи заявки в сеть: по ней постбэк вернёт статус.
 const STATUSES = ["NEW", "CALLED", "CONFIRMED", "REJECTED"] as const;
-
-function csvCell(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 export async function GET(req: NextRequest) {
   const statusParam = req.nextUrl.searchParams.get("status") ?? "CONFIRMED";
@@ -26,7 +23,8 @@ export async function GET(req: NextRequest) {
   });
 
   const header = [
-    "id", "created_at", "status", "name", "phone", "address", "provider", "plan", "payout_rub",
+    "id", "created_at", "status", "name", "phone", "company", "address", "provider", "plan",
+    "payout_rub", "network_status",
   ];
   const lines = [header.join(",")];
   for (const l of leads) {
@@ -37,10 +35,13 @@ export async function GET(req: NextRequest) {
         l.status,
         l.name,
         l.phone,
+        l.company ?? "",
         l.addressText,
         l.plan?.provider.name ?? "",
         l.plan?.name ?? "",
-        l.plan?.provider.payoutRub ?? "",
+        // Сумма от сети точнее ставки провайдера.
+        l.payoutRub ?? l.plan?.provider.payoutRub ?? "",
+        l.networkStatusRaw ?? "",
       ]
         .map(csvCell)
         .join(","),

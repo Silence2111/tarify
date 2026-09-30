@@ -42,12 +42,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Analytics />
         <DemoBanner />
         <header className="border-b border-slate-200 bg-white">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
             <Link href="/" className="text-lg font-bold text-brand">
               Тарифы<span className="text-brand-light">.ру</span>
             </Link>
-            <nav className="text-sm text-slate-500">
-              <span>Подбор интернета по адресу</span>
+            <nav className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
+              <Link href="/" className="hover:text-brand">
+                Интернет по адресу
+              </Link>
+              <Link href="/mobile" className="hover:text-brand">
+                Мобильная связь
+              </Link>
+              <Link href="/business" className="hover:text-brand">
+                Для бизнеса
+              </Link>
             </nav>
           </div>
         </header>
@@ -58,9 +66,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Сравнение бесплатно для пользователя — мы получаем вознаграждение от провайдеров за
               подключение.
             </span>
-            <Link href="/privacy" className="hover:text-brand">
-              Политика конфиденциальности
-            </Link>
+            <span className="flex flex-wrap gap-x-4 gap-y-1">
+              <Link href="/izmeneniya-cen" className="hover:text-brand">
+                Изменения цен
+              </Link>
+              <Link href="/privacy" className="hover:text-brand">
+                Политика конфиденциальности
+              </Link>
+            </span>
           </div>
         </footer>
       </body>

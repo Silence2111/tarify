@@ -5,7 +5,7 @@
   "description": "Агрегатор сравнения тарифов интернет-провайдеров по адресу (MVP)",
   "scripts": {
     "dev": "NODE_ENV=development next dev",
-    "build": "next build",
+    "build": "node scripts/db-sync.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "db:local": "node scripts/local-db.mjs",

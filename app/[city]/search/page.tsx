@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { findCoverageByAddress } from "@/lib/coverage";
+import { MobileTeaser } from "@/components/MobileTeaser";
 import { ResultsList } from "@/components/ResultsList";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,13 @@ export default async function SearchPage({ params, searchParams }: Props) {
           />
         )}
       </div>
+
+      {/* Рядом с домашним интернетом — мобильная связь региона: то, чего нет у каталогов SIM. */}
+      <MobileTeaser
+        region={cityRow.region}
+        addressText={result.addressText}
+        title="Мобильная связь в этом регионе"
+      />
     </div>
   );
 }

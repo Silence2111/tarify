@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCityProviders } from "@/lib/coverage";
+import { MobileTeaser } from "@/components/MobileTeaser";
 import { AddressSearch } from "@/components/AddressSearch";
 import { PlanCard } from "@/components/PlanCard";
 import { plural } from "@/lib/format";
@@ -86,6 +87,8 @@ export default async function CityPage({ params }: Props) {
           </section>
         ))}
       </div>
+
+      <MobileTeaser region={cityRow.region} addressText={cityRow.name} />
     </div>
   );
 }

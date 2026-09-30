@@ -55,6 +55,63 @@ const PROVIDERS: ProviderSeed[] = [
   ]},
 ];
 
+// Мобильная связь: демо-цены для Москвы; в других регионах — с коэффициентом.
+// Тарифы операторов с флагом national — единая цена по России (region = null).
+const UNLIM = -1; // безлимит в ГБ/минутах/SMS
+type MobilePlanSeed = {
+  name: string; price: number; gb: number; minutes: number; sms?: number;
+  description?: string; options?: { label: string; value: string }[];
+};
+type MobileSeed = { slug: string; name: string; payoutRub: number; url: string; national?: boolean; plans: MobilePlanSeed[] };
+
+const REGION_PRICE: Record<string, number> = { "Москва": 1, "Санкт-Петербург": 0.95, "Татарстан": 0.8 };
+
+const MOBILE: MobileSeed[] = [
+  { slug: "mts", name: "МТС", payoutRub: 1800, url: "https://mts.ru/", plans: [
+    { name: "Базовый 20", price: 450, gb: 20, minutes: 400, sms: 100 },
+    { name: "Оптимальный 40", price: 700, gb: 40, minutes: 800 },
+    { name: "Безлимитный", price: 1100, gb: UNLIM, minutes: 1500, options: [{ label: "Раздача интернета", value: "до 10 ГБ в месяц" }] },
+  ]},
+  { slug: "beeline", name: "Билайн", payoutRub: 1500, url: "https://beeline.ru/", plans: [
+    { name: "Базовый 25", price: 500, gb: 25, minutes: 500 },
+    { name: "Оптимальный 50", price: 800, gb: 50, minutes: 1000, sms: 100 },
+  ]},
+  { slug: "megafon", name: "МегаФон", payoutRub: 300, url: "https://megafon.ru/", plans: [
+    { name: "Базовый 15", price: 400, gb: 15, minutes: 300 },
+    { name: "Максимум 60", price: 950, gb: 60, minutes: 1200, options: [{ label: "Мессенджеры", value: "без расхода гигабайт" }] },
+  ]},
+  { slug: "t2", name: "t2", payoutRub: 360, url: "https://t2.ru/", plans: [
+    { name: "Базовый 30", price: 450, gb: 30, minutes: 600, options: [{ label: "Мессенджеры", value: "без расхода гигабайт" }] },
+    { name: "Расширенный 50", price: 650, gb: 50, minutes: 1000 },
+  ]},
+  { slug: "yota", name: "Yota", payoutRub: 250, url: "https://yota.ru/", plans: [
+    { name: "Конструктор 20", price: 400, gb: 20, minutes: 300 },
+  ]},
+  { slug: "tmobile", name: "Т-Мобайл", payoutRub: 553, url: "https://www.tbank.ru/", national: true, plans: [
+    { name: "Базовый 25", price: 450, gb: 25, minutes: 400, description: "Виртуальный оператор: работает на сетях t2, МТС и Билайна." },
+    { name: "Безлимитный", price: 990, gb: UNLIM, minutes: UNLIM },
+  ]},
+  { slug: "sbermobile", name: "СберМобайл", payoutRub: 351, url: "https://sbermobile.ru/", national: true, plans: [
+    { name: "Базовый 20", price: 400, gb: 20, minutes: 500 },
+  ]},
+];
+
+// Расчётные счета для бизнеса: демо-условия, ставка — за открытый счёт.
+type BankSeed = { slug: string; name: string; payoutRub: number; url: string; plans: { name: string; price: number; options: { label: string; value: string }[] }[] };
+const BANKS: BankSeed[] = [
+  { slug: "tbank", name: "Т-Банк", payoutRub: 8000, url: "https://www.tbank.ru/", plans: [
+    { name: "Старт", price: 0, options: [{ label: "Платежи юрлицам", value: "первые 3 бесплатно" }, { label: "Снятие наличных", value: "от 3%" }] },
+    { name: "Продвинутый", price: 1990, options: [{ label: "Платежи юрлицам", value: "100 бесплатно" }, { label: "Переводы физлицам", value: "до 400 000 ₽ без комиссии" }] },
+  ]},
+  { slug: "tochka", name: "Точка", payoutRub: 8000, url: "https://tochka.com/", plans: [
+    { name: "Старт", price: 0, options: [{ label: "Платежи юрлицам", value: "5 бесплатно" }, { label: "Снятие наличных", value: "от 3%" }] },
+    { name: "Бизнес", price: 2100, options: [{ label: "Платежи юрлицам", value: "без ограничений" }, { label: "Переводы физлицам", value: "до 500 000 ₽ без комиссии" }] },
+  ]},
+  { slug: "alfabank", name: "Альфа-Банк", payoutRub: 8000, url: "https://alfabank.ru/", plans: [
+    { name: "Базовый", price: 0, options: [{ label: "Платежи юрлицам", value: "по 99 ₽" }, { label: "Снятие наличных", value: "от 2%" }] },
+  ]},
+];
+
 type CitySeed = { name: string; region: string; providers: string[]; streets: { name: string; houses: string[] }[] };
 
 const CITIES: CitySeed[] = [
@@ -87,6 +144,7 @@ async function main() {
   await prisma.lead.deleteMany();
   await prisma.coverage.deleteMany();
   await prisma.planOption.deleteMany();
+  await prisma.priceChange.deleteMany();
   await prisma.plan.deleteMany();
   await prisma.building.deleteMany();
   await prisma.street.deleteMany();
@@ -148,9 +206,81 @@ async function main() {
     }
   }
 
+  console.log("Мобильная связь и счета для бизнеса...");
+  for (const op of MOBILE) {
+    let id = providerId[op.slug];
+    if (!id) {
+      id = (await prisma.provider.create({ data: { slug: op.slug, name: op.name, payoutRub: op.payoutRub } })).id;
+      providerId[op.slug] = id;
+    }
+    const regions: (string | null)[] = op.national ? [null] : Object.keys(REGION_PRICE);
+    for (const region of regions) {
+      const k = region ? REGION_PRICE[region] : 1;
+      for (const pl of op.plans) {
+        await prisma.plan.create({
+          data: {
+            providerId: id, type: "MOBILE", name: pl.name,
+            priceMonthly: Math.round((pl.price * k) / 10) * 10,
+            hasMobile: true, mobileGb: pl.gb, minutes: pl.minutes, sms: pl.sms ?? null, esim: true,
+            region, url: op.url, description: pl.description ?? null,
+            options: pl.options ? { create: pl.options } : undefined,
+          },
+        });
+      }
+    }
+  }
+  for (const bank of BANKS) {
+    const created = await prisma.provider.create({ data: { slug: bank.slug, name: bank.name, payoutRub: bank.payoutRub } });
+    for (const pl of bank.plans) {
+      await prisma.plan.create({
+        data: {
+          providerId: created.id, type: "BUSINESS_ACCOUNT", name: pl.name, priceMonthly: pl.price,
+          url: bank.url, options: { create: pl.options },
+        },
+      });
+    }
+  }
+
+  // Демо-история цен: лента «Изменения цен» и пометки «подорожал/подешевел» на карточках.
+  // На проде историю пишет импорт прайса.
+  console.log("История цен...");
+  const DAY = 24 * 60 * 60 * 1000;
+  const yota = providerId["yota"];
+  if (yota) {
+    await prisma.plan.create({
+      data: {
+        providerId: yota, type: "MOBILE", name: "Конструктор 10", priceMonthly: 300, isActive: false,
+        hasMobile: true, mobileGb: 10, minutes: 200, esim: true, region: "Москва",
+      },
+    });
+  }
+  const CHANGES: { slug: string; plan: string; region: string | null; kind: "UP" | "DOWN" | "NEW" | "REMOVED"; old?: number; daysAgo: number }[] = [
+    { slug: "t2", plan: "Расширенный 50", region: "Москва", kind: "NEW", daysAgo: 3 },
+    { slug: "mts", plan: "Базовый 20", region: "Москва", kind: "UP", old: 400, daysAgo: 6 },
+    { slug: "mts", plan: "Базовый 20", region: "Татарстан", kind: "UP", old: 330, daysAgo: 6 },
+    { slug: "megafon", plan: "Максимум 60", region: "Москва", kind: "UP", old: 890, daysAgo: 12 },
+    { slug: "yota", plan: "Конструктор 10", region: "Москва", kind: "REMOVED", old: 300, daysAgo: 12 },
+    { slug: "beeline", plan: "Базовый 25", region: "Москва", kind: "DOWN", old: 550, daysAgo: 20 },
+    { slug: "rostelecom", plan: "Технологии общения 100", region: null, kind: "UP", old: 550, daysAgo: 25 },
+  ];
+  for (const c of CHANGES) {
+    const plan = await prisma.plan.findFirst({
+      where: { provider: { slug: c.slug }, name: c.plan, region: c.region },
+    });
+    if (!plan) continue;
+    await prisma.priceChange.create({
+      data: {
+        planId: plan.id, kind: c.kind,
+        oldPrice: c.kind === "NEW" ? null : (c.old ?? null),
+        newPrice: c.kind === "REMOVED" ? null : plan.priceMonthly,
+        createdAt: new Date(Date.now() - c.daysAgo * DAY),
+      },
+    });
+  }
+
   // Демо-заявки для непустой админки.
   const someBuilding = await prisma.building.findFirst({ include: { street: { include: { city: true } } } });
-  const somePlan = await prisma.plan.findFirst();
+  const somePlan = await prisma.plan.findFirst({ where: { type: { in: ["INTERNET", "BUNDLE"] } } });
   if (someBuilding && somePlan) {
     await prisma.lead.create({
       data: {
@@ -164,10 +294,13 @@ async function main() {
   console.log("Готово:", {
     провайдеров: await prisma.provider.count(),
     тарифов: await prisma.plan.count(),
+    мобильных: await prisma.plan.count({ where: { type: "MOBILE" } }),
+    счетов: await prisma.plan.count({ where: { type: "BUSINESS_ACCOUNT" } }),
     городов: await prisma.city.count(),
     улиц: await prisma.street.count(),
     домов: await prisma.building.count(),
     покрытий: await prisma.coverage.count(),
+    'изменений цен': await prisma.priceChange.count(),
   });
 }
 

@@ -1,9 +1,12 @@
+import { parseCsv } from "@/lib/csv";
 import { prisma } from "@/lib/db";
 import { slugify } from "@/lib/format";
 
 // Импорт матрицы покрытия из CSV (фиды провайдеров / ручной сбор).
 // Заголовок (первая строка) задаёт колонки. Обязательные: city, street, house, provider.
-// Необязательные: provider_name, tech, payout.
+// Необязательные: provider_name, tech, payout, source. provider_name и payout
+// нужны только для нового провайдера; у существующего имя и ставку меняет
+// импорт тарифов (lib/plans-import.ts).
 // Идемпотентно: повторный импорт не плодит дубли (Coverage уникален по дом+провайдер).
 
 export type ImportSummary = {
@@ -14,39 +17,6 @@ export type ImportSummary = {
   buildingsCreated: number;
   errors: { line: number; message: string }[];
 };
-
-// Минимальный CSV-парсер с поддержкой кавычек и экранирования "".
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else inQuotes = false;
-      } else field += c;
-    } else if (c === '"') inQuotes = true;
-    else if (c === ",") {
-      row.push(field);
-      field = "";
-    } else if (c === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else if (c !== "\r") field += c;
-  }
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows.filter((r) => r.some((c) => c.trim() !== ""));
-}
 
 export async function importCoverageCsv(
   text: string,

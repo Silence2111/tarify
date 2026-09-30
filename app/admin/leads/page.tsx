@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { formatRub, plural } from "@/lib/format";
+import { AdminNav } from "@/components/AdminNav";
+import { LeadDeliverButton } from "@/components/LeadDeliverButton";
 import { LeadStatusControl } from "@/components/LeadStatusControl";
-import { LogoutButton } from "@/components/LogoutButton";
+import { deliveryEnabled, deliveryHost } from "@/lib/lead-delivery";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,15 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   REJECTED: { label: "Отказы", cls: "text-red-600" },
 };
 
-// Воронка заявок. CONFIRMED — это деньги: суммируем payoutRub провайдеров.
+const NETWORK_LABEL = {
+  PENDING: "в обработке",
+  HOLD: "холд",
+  APPROVED: "одобрено",
+  REJECTED: "отклонено",
+} as const;
+
+// Воронка заявок. CONFIRMED — это деньги: сумма из постбэка сети, а если её нет —
+// ставка провайдера.
 export default async function LeadsPage() {
   const [leads, grouped, confirmed] = await Promise.all([
     prisma.lead.findMany({
@@ -32,22 +41,20 @@ export default async function LeadsPage() {
   for (const g of grouped) counts[g.status] = g._count._all;
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
-  const revenue = confirmed.reduce((sum, l) => sum + (l.plan?.provider.payoutRub ?? 0), 0);
+  const revenue = confirmed.reduce(
+    (sum, l) => sum + (l.payoutRub ?? l.plan?.provider.payoutRub ?? 0),
+    0,
+  );
+  const fromNetwork = confirmed.filter((l) => l.networkStatus === "APPROVED").length;
+  const delivery = deliveryEnabled();
+  const host = deliveryHost();
   // Конверсия заявка → подключение (аппрув) — ключевая метрика юнит-экономики.
   const closable = counts.CONFIRMED + counts.REJECTED;
   const approval = closable > 0 ? Math.round((counts.CONFIRMED / closable) * 100) : null;
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-sm text-slate-500">
-        <span>
-          Заявки /{" "}
-          <Link href="/admin/coverage" className="hover:text-brand">
-            Покрытие
-          </Link>
-        </span>
-        <LogoutButton />
-      </div>
+      <AdminNav current="/admin/leads" className="mb-1" />
       <h1 className="text-2xl font-bold text-slate-900">Заявки</h1>
       <p className="mt-1 text-sm text-slate-500">
         Воронка обработки. За подтверждённые подключения платит провайдер.
@@ -84,7 +91,28 @@ export default async function LeadsPage() {
           value={approval === null ? "—" : `${approval}%`}
         />
         <Metric label="Выручка (подтверждённые)" value={formatRub(revenue)} highlight />
+        <Metric
+          label="Подтверждено сетью"
+          value={confirmed.length > 0 ? `${fromNetwork} из ${confirmed.length}` : "—"}
+        />
       </div>
+
+      <p className="mt-3 max-w-3xl text-xs text-slate-500">
+        {delivery ? (
+          <>
+            Заявки сразу уходят в сеть или CRM ({host ?? "адрес из LEAD_WEBHOOK_URL"}) с номером
+            заявки в метке <code>subid</code>.
+          </>
+        ) : (
+          <>
+            Автопередача выключена: задайте <code>LEAD_WEBHOOK_URL</code> — адрес приёма заявок
+            сети или CRM (см. DEPLOY.md). Пока передавайте заявки выгрузкой, указывая номер заявки
+            (серый под датой, колонка <code>id</code> в CSV) как метку <code>subid</code>.
+          </>
+        )}{" "}
+        Статусы возвращает постбэк — тот же адрес, что в разделе «Переходы»: «одобрено» ставит
+        «Подключён» и сумму, «отклонено» — «Отказ».
+      </p>
 
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-400">
         Последние {leads.length} {plural(leads.length, "заявка", "заявки", "заявок")}
@@ -113,8 +141,12 @@ export default async function LeadsPage() {
                 <tr key={l.id} className="border-t border-slate-100 align-top">
                   <td className="whitespace-nowrap px-3 py-2 text-slate-500">
                     {l.createdAt.toLocaleString("ru-RU")}
+                    <div className="select-all font-mono text-[11px] text-slate-400">{l.id}</div>
                   </td>
-                  <td className="px-3 py-2">{l.name}</td>
+                  <td className="px-3 py-2">
+                    {l.name}
+                    {l.company && <div className="text-xs text-slate-500">{l.company}</div>}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2">{l.phone}</td>
                   <td className="px-3 py-2 text-slate-600">{l.addressText}</td>
                   <td className="px-3 py-2 text-slate-600">
@@ -122,6 +154,32 @@ export default async function LeadsPage() {
                   </td>
                   <td className="px-3 py-2">
                     <LeadStatusControl id={l.id} status={l.status} />
+                    {l.networkStatus && (
+                      <div className="mt-1 text-xs text-slate-500">
+                        Сеть{l.network ? ` ${l.network}` : ""}: {NETWORK_LABEL[l.networkStatus]}
+                        {l.payoutRub != null && ` · ${formatRub(l.payoutRub)}`}
+                        {l.networkAt && ` · ${l.networkAt.toLocaleDateString("ru-RU")}`}
+                      </div>
+                    )}
+                    {l.deliveredAt ? (
+                      <div className="mt-1 text-xs text-slate-400">
+                        Передана в сеть {l.deliveredAt.toLocaleString("ru-RU")}
+                      </div>
+                    ) : (
+                      delivery && (
+                        <div className="mt-1 space-y-1 text-xs">
+                          {l.deliveryError && (
+                            <div className="break-words text-red-600">
+                              Не передана: {l.deliveryError}
+                            </div>
+                          )}
+                          <LeadDeliverButton
+                            id={l.id}
+                            label={l.deliveryError ? "Отправить ещё раз" : "Отправить в сеть"}
+                          />
+                        </div>
+                      )
+                    )}
                   </td>
                 </tr>
               ))

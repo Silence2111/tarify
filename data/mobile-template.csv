@@ -1,0 +1,5 @@
+provider,provider_name,payout,region,plan,price,gb,minutes,sms,esim,type,url,erid,description,options
+mts,МТС,,Москва,Базовый 20,450,20,400,100,да,MOBILE,https://mts.ru/,,,
+mts,МТС,,Татарстан,Базовый 20,360,20,400,100,да,MOBILE,https://mts.ru/,,,
+t2,t2,360,Москва,Базовый 30,450,30,600,,да,MOBILE,https://t2.ru/,,,"Мессенджеры: без расхода гигабайт"
+tmobile,Т-Мобайл,553,,Безлимитный,990,безлимит,безлимит,,да,MOBILE,https://www.tbank.ru/,,"Виртуальный оператор: работает на сетях t2, МТС и Билайна.","Перенос номера: скидка при переходе со своим номером"
