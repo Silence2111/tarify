@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PlanCard } from "@/components/PlanCard";
-import { getCatalogPlans, getCatalogRegions } from "@/lib/catalog";
+import { getCatalogPlans, getMobileRegionContext } from "@/lib/catalog";
 import { amountText, pickRegion } from "@/lib/catalog-filter";
 import { formatRub, plural } from "@/lib/format";
 import {
@@ -17,6 +17,7 @@ import {
   usageText,
   type Params,
 } from "@/lib/usage";
+import { catalogPath } from "@/lib/regions";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default async function PodborPage({ searchParams }: Props) {
   const sp = await searchParams;
-  const regions = await getCatalogRegions("MOBILE");
+  const { regions, defaultRegion } = await getMobileRegionContext();
   const region = pickRegion(param(sp, "region") || undefined, regions);
   const plans = await getCatalogPlans("MOBILE", { region });
 
@@ -48,7 +49,7 @@ export default async function PodborPage({ searchParams }: Props) {
   const matches = matchPlans(plans, usage);
   const best = matches[0] ?? null;
   const bestSaving = best ? savings(best.priceMonthly, usage.pay) : null;
-  const regionQuery = region ? `?region=${encodeURIComponent(region)}` : "";
+  const catalogHref = catalogPath("/mobile", region, defaultRegion);
   const regionIn = region ? ` в регионе ${region}` : "";
 
   // Пакет своего тарифа может не совпасть с вариантами списка — добавляем его,
@@ -64,7 +65,7 @@ export default async function PodborPage({ searchParams }: Props) {
           Главная
         </Link>{" "}
         /{" "}
-        <Link href={`/mobile${regionQuery}`} className="hover:text-brand">
+        <Link href={catalogHref} className="hover:text-brand">
           Мобильная связь
         </Link>{" "}
         / Подбор под расход
@@ -254,7 +255,7 @@ export default async function PodborPage({ searchParams }: Props) {
         {matches.length > SHOWN && (
           <p className="mt-3 text-sm text-slate-500">
             Показаны {SHOWN} самых дешёвых из {matches.length}.{" "}
-            <Link href={`/mobile${regionQuery}`} className="text-brand hover:underline">
+            <Link href={catalogHref} className="text-brand hover:underline">
               Все тарифы региона →
             </Link>
           </p>

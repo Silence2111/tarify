@@ -21,13 +21,14 @@
 | Мобильная связь | [app/mobile/](app/mobile/) + [components/MobileCatalog.tsx](components/MobileCatalog.tsx) + [lib/catalog.ts](lib/catalog.ts) | Каталог тарифов операторов с ценами по регионам, фильтры (ГБ, минуты, eSIM), «Оформить» по партнёрской ссылке |
 | Для бизнеса | [app/business/page.tsx](app/business/page.tsx) | Заявка «интернет в офис» и каталог расчётных счетов банков |
 | Согласие на ПДн | [app/soglasie/page.tsx](app/soglasie/page.tsx) + [components/ConsentCheckbox.tsx](components/ConsentCheckbox.tsx) | Отдельный документ согласия (требование с 01.09.2025) и галочка во всех формах |
+| Страницы регионов | [lib/regions.ts](lib/regions.ts) + [app/mobile/[slug]/](app/mobile/[slug]/) | Регион в адресе: `/mobile/tatarstan`, `/mobile/mts/tatarstan`, `/mobile/podborka/s-esim/tatarstan` — отдельные страницы под запросы «тарифы МТС Татарстан». У оператора — только регионы, где у него свои цены; в `sitemap.xml` — все такие страницы |
 | Подбор под расход | [app/mobile/podbor/page.tsx](app/mobile/podbor/page.tsx) + [lib/usage.ts](lib/usage.ts) | «Переплачиваете за связь?»: расход (ГБ, минуты) и платёж или свой тариф → подходящие тарифы по цене и экономия за месяц и год. Работает без JS, ссылкой на результат можно поделиться |
 | SEO-подборки | [app/mobile/podborka/](app/mobile/podborka/) + [lib/collections.ts](lib/collections.ts) | «Безлимитный интернет», «С eSIM», «Без абонплаты» и др. со своими цифрами; меньше 3 тарифов — не в индексе |
 | Передача заявок | [lib/lead-delivery.ts](lib/lead-delivery.ts) + [lib/telegram.ts](lib/telegram.ts) | Заявка сразу после отправки уходит в CPA-сеть или CRM по адресу `LEAD_WEBHOOK_URL` (поля — по шаблону, id заявки — меткой `subid`); в админке видно, передана ли, и можно отправить ещё раз. Оператору — уведомление в Telegram без персональных данных |
 | Изменения цен | [app/izmeneniya-cen/page.tsx](app/izmeneniya-cen/page.tsx) + [lib/price-history.ts](lib/price-history.ts) | Импорт прайса записывает историю: подорожал, подешевел, новый, снят. Лента с датами и процентами, пометка «подорожал на 50 ₽ · 24 сент.» на карточках (60 дней), изменения оператора на его странице; после загрузки прайса — пост в Telegram-канал ([lib/price-post.ts](lib/price-post.ts)) |
 | Переходы и постбэк | [app/go/](app/go/) + [lib/postback.ts](lib/postback.ts) + [app/admin/clicks/page.tsx](app/admin/clicks/page.tsx) | «Оформить» записывает переход и передаёт его номер в сеть как `{subid}`; постбэк сети возвращает статус и сумму — заработок по операторам в админке. Тот же постбэк принимает статусы заявок: заявка, переданная в сеть со своим id в метке, сама становится «Подключён» или «Отказ» с суммой от сети |
 
-Маршруты: `/` · `/[city]` и `/[city]/[street]` (гео-SEO) · `/[city]/search?street=&house=` (результаты) · `/mobile`, `/mobile/[operator]`, `/mobile/podborka/[slug]` и `/mobile/podbor` (мобильная связь, `?region=`) · `/business` · `/izmeneniya-cen` (лента изменений цен, `?type=mobile|home|business`) · `/privacy` · `/soglasie` · `/go/[planId]` (переход по партнёрской ссылке) · `/api/postback` (статусы от CPA-сетей) · админка под паролем: `/admin/leads`, `/admin/coverage`, `/admin/plans`, `/admin/clicks` (вход — `/admin/login`).
+Маршруты: `/` · `/[city]` и `/[city]/[street]` (гео-SEO) · `/[city]/search?street=&house=` (результаты) · `/mobile`, `/mobile/[оператор или регион]`, `/mobile/[оператор]/[регион]`, `/mobile/podborka/[slug]` и `/mobile/podborka/[slug]/[регион]` (мобильная связь; регион по умолчанию — на адресе без региона, старые `?region=` перенаправляются), `/mobile/podbor` (подбор под расход) · `/business` · `/izmeneniya-cen` (лента изменений цен, `?type=mobile|home|business`) · `/privacy` · `/soglasie` · `/go/[planId]` (переход по партнёрской ссылке) · `/api/postback` (статусы от CPA-сетей) · админка под паролем: `/admin/leads`, `/admin/coverage`, `/admin/plans`, `/admin/clicks` (вход — `/admin/login`).
 
 В поиск по адресу провайдер попадает, только если у него есть **покрытие** дома и хотя бы один **активный домашний тариф** — это две разные загрузки в админке. Мобильной связи и счетам для бизнеса покрытие не нужно: они живут в своих каталогах.
 
@@ -114,6 +115,8 @@ ADMIN_PASSWORD=secret SITE_URL=http://localhost:3000 \
   в БД не пишется ничего, пустая ставка не обнуляет существующую;
 - **каталог мобильной связи**: безлимит проходит любой фильтр «от N ГБ», сортировка,
   регион по умолчанию; состав SEO-подборок и их цифры (число тарифов, минимум, медиана);
+- **регион в адресе**: слаги регионов, регион по умолчанию — без региона в адресе (без копий),
+  у регионального оператора свой регион по умолчанию, у оператора с единой ценой — без региональных страниц;
 - **подбор под расход**: не предлагаем тариф с пакетом меньше нужного, «нужен безлимит» —
   только безлимит, свой тариф задаёт пакет и цену и сам в выдачу не попадает, экономия — только
   если дешевле, мусор в адресе не ломает страницу;

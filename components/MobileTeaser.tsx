@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getCatalogPlans } from "@/lib/catalog";
+import { getCatalogPlans, getMobileRegionContext } from "@/lib/catalog";
+import { catalogPath } from "@/lib/regions";
 import { PlanCard } from "./PlanCard";
 
 // Мобильная связь рядом с интернетом по адресу: три самых дешёвых тарифа региона
@@ -14,8 +15,13 @@ export async function MobileTeaser({
   title?: string;
 }) {
   if (!region) return null;
-  const plans = await getCatalogPlans("MOBILE", { region, take: 3 });
+  const [plans, { regions, defaultRegion }] = await Promise.all([
+    getCatalogPlans("MOBILE", { region, take: 3 }),
+    getMobileRegionContext(),
+  ]);
   if (plans.length === 0) return null;
+  // Страница региона есть, только если у региона свои цены; иначе — общий каталог.
+  const catalogHref = catalogPath("/mobile", regions.includes(region) ? region : null, defaultRegion);
 
   return (
     <section className="mt-10">
@@ -28,10 +34,7 @@ export async function MobileTeaser({
           >
             Подобрать под свой расход
           </Link>
-          <Link
-            href={`/mobile?region=${encodeURIComponent(region)}`}
-            className="text-brand hover:underline"
-          >
+          <Link href={catalogHref} className="text-brand hover:underline">
             Все тарифы региона →
           </Link>
         </div>

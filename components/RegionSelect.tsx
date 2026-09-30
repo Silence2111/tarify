@@ -2,18 +2,17 @@
 
 import { useRouter } from "next/navigation";
 
-// Выбор региона цен: мобильные тарифы в каждом регионе стоят по-своему.
+// Выбор региона цен: мобильные тарифы в каждом регионе стоят по-своему. У каждого
+// региона свой адрес (/mobile/tatarstan) — страница, которую видит и поиск.
 export function RegionSelect({
-  regions,
+  options,
   current,
-  basePath,
 }: {
-  regions: string[];
+  options: { name: string; href: string }[];
   current: string | null;
-  basePath: string;
 }) {
   const router = useRouter();
-  if (regions.length === 0) return null;
+  if (options.length === 0) return null;
 
   return (
     <label className="flex flex-wrap items-center gap-2 text-sm">
@@ -21,12 +20,15 @@ export function RegionSelect({
       <select
         id="region-select"
         value={current ?? ""}
-        onChange={(e) => router.push(`${basePath}?region=${encodeURIComponent(e.target.value)}`)}
+        onChange={(e) => {
+          const next = options.find((o) => o.name === e.target.value);
+          if (next) router.push(next.href);
+        }}
         className="rounded-lg border border-slate-300 bg-white px-3 py-2"
       >
-        {regions.map((r) => (
-          <option key={r} value={r}>
-            {r}
+        {options.map((o) => (
+          <option key={o.name} value={o.name}>
+            {o.name}
           </option>
         ))}
       </select>

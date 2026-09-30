@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
-import { getCatalogPlans, getCatalogRegions } from "@/lib/catalog";
+import { getCatalogPlans, getMobileOperatorRegions, getMobileRegionContext } from "@/lib/catalog";
 import { pickRegion } from "@/lib/catalog-filter";
 import { collectionPlans, MIN_INDEXABLE, MOBILE_COLLECTIONS } from "@/lib/collections";
 import { prisma } from "@/lib/db";
 import { FEED_MIN_INDEXABLE, getPriceChanges } from "@/lib/price-history";
+import { regionSlug } from "@/lib/regions";
 import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -28,15 +29,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/mobile/podbor`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${base}/business`, changeFrequency: "monthly", priority: 0.7 },
   ];
+  // Мобильная связь по регионам. Регион по умолчанию живёт на базовых адресах
+  // (/mobile, /mobile/<оператор>, /mobile/podborka/<подборка>), остальные — с регионом
+  // в пути. Оператору — только регионы, где у него свои цены.
+  const [{ regions, defaultRegion }, operatorRegions, mobilePlans] = await Promise.all([
+    getMobileRegionContext(),
+    getMobileOperatorRegions(),
+    getCatalogPlans("MOBILE"),
+  ]);
+  const otherRegions = regions.filter((r) => r !== defaultRegion);
+  for (const r of otherRegions) {
+    urls.push({ url: `${base}/mobile/${regionSlug(r)}`, changeFrequency: "weekly", priority: 0.8 });
+  }
   for (const o of operators) {
     urls.push({ url: `${base}/mobile/${o.slug}`, changeFrequency: "weekly", priority: 0.7 });
+    const own = operatorRegions.get(o.slug) ?? [];
+    const ownDefault = pickRegion(undefined, own);
+    for (const r of own.filter((x) => x !== ownDefault)) {
+      urls.push({
+        url: `${base}/mobile/${o.slug}/${regionSlug(r)}`,
+        changeFrequency: "weekly",
+        priority: 0.6,
+      });
+    }
   }
-  // Подборки — только те, что индексируются в регионе по умолчанию (адрес без ?region=).
-  const defaultRegion = pickRegion(undefined, await getCatalogRegions("MOBILE"));
-  const mobilePlans = await getCatalogPlans("MOBILE", { region: defaultRegion });
+  // Подборки — только те, что индексируются (3+ тарифа в регионе).
+  const plansIn = (r: string | null) => mobilePlans.filter((p) => p.region === null || p.region === r);
   for (const c of MOBILE_COLLECTIONS) {
-    if (collectionPlans(c, mobilePlans).length >= MIN_INDEXABLE) {
+    if (collectionPlans(c, plansIn(defaultRegion)).length >= MIN_INDEXABLE) {
       urls.push({ url: `${base}/mobile/podborka/${c.slug}`, changeFrequency: "weekly", priority: 0.6 });
+    }
+    for (const r of otherRegions) {
+      if (collectionPlans(c, plansIn(r)).length >= MIN_INDEXABLE) {
+        urls.push({
+          url: `${base}/mobile/podborka/${c.slug}/${regionSlug(r)}`,
+          changeFrequency: "weekly",
+          priority: 0.5,
+        });
+      }
     }
   }
   // Лента изменений цен — как и подборки, только непустая (иначе она noindex).

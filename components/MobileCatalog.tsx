@@ -4,29 +4,41 @@ import {
   getCatalogProviders,
   getCatalogRegions,
   getCatalogUpdatedAt,
+  getMobileOperatorRegions,
 } from "@/lib/catalog";
 import { pickRegion } from "@/lib/catalog-filter";
 import { collectionPlans, MOBILE_COLLECTIONS, priceStats, type Collection } from "@/lib/collections";
 import { formatDate, formatRub, plural } from "@/lib/format";
 import { getPriceChanges } from "@/lib/price-history";
+import { catalogPath, operatorPath } from "@/lib/regions";
 import { CatalogList } from "./CatalogList";
 import { PriceChangeList } from "./PriceChangeList";
 import { RegionSelect } from "./RegionSelect";
 
-// Страница каталога мобильной связи: вся, по одному оператору или SEO-подборка.
-// Регион — из ?region=, иначе Москва; тарифы с единой ценой по России видны в
-// любом регионе.
+// Страница каталога мобильной связи: вся, по одному оператору или SEO-подборка — в
+// регионе, который страница уже определила по адресу. Тарифы с единой ценой по России
+// видны в любом регионе. Ссылки на регионы, операторов и подборки ведут на адреса с
+// регионом в пути (lib/regions.ts).
 export async function MobileCatalog({
-  requestedRegion,
+  region,
   operator,
   collection,
 }: {
-  requestedRegion?: string;
+  region: string | null;
   operator?: { slug: string; name: string };
   collection?: Collection;
 }) {
-  const regions = await getCatalogRegions("MOBILE");
-  const region = pickRegion(requestedRegion, regions);
+  const [globalRegions, operatorRegions] = await Promise.all([
+    getCatalogRegions("MOBILE"),
+    getMobileOperatorRegions(),
+  ]);
+  const globalDefault = pickRegion(undefined, globalRegions);
+  // Регионы этой страницы: у оператора — только те, где у него свои цены.
+  const ownRegions = operator ? (operatorRegions.get(operator.slug) ?? []) : globalRegions;
+  const ownDefault = pickRegion(undefined, ownRegions);
+  // Регион для ссылок на общий каталог и подборки — если там есть такой регион.
+  const catalogRegion = region && globalRegions.includes(region) ? region : null;
+
   const [regionPlans, providers, updatedAt, operatorChanges] = await Promise.all([
     getCatalogPlans("MOBILE", { region, providerSlug: operator?.slug }),
     getCatalogProviders("MOBILE"),
@@ -54,7 +66,11 @@ export async function MobileCatalog({
     : collection
       ? `/mobile/podborka/${collection.slug}`
       : "/mobile";
+  const regionOptions = ownRegions.map((r) => ({ name: r, href: catalogPath(basePath, r, ownDefault) }));
+  const mobileHome = catalogPath("/mobile", catalogRegion, globalDefault);
   const regionQuery = region ? `?region=${encodeURIComponent(region)}` : "";
+  // Страница региона всего каталога: /mobile/tatarstan.
+  const regionPage = !operator && !collection && region !== globalDefault;
   const heading = operator
     ? `Тарифы ${operator.name}`
     : collection
@@ -68,12 +84,12 @@ export async function MobileCatalog({
           Главная
         </Link>{" "}
         /{" "}
-        {operator || collection ? (
+        {operator || collection || regionPage ? (
           <>
-            <Link href={`/mobile${regionQuery}`} className="hover:text-brand">
+            <Link href={operator || collection ? mobileHome : "/mobile"} className="hover:text-brand">
               Мобильная связь
             </Link>{" "}
-            / {operator?.name ?? collection?.short}
+            / {operator?.name ?? collection?.short ?? region}
           </>
         ) : (
           "Мобильная связь"
@@ -113,13 +129,13 @@ export async function MobileCatalog({
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <RegionSelect regions={regions} current={region} basePath={basePath} />
+        <RegionSelect options={regionOptions} current={region} />
         {!operator && !collection && providers.length > 0 && (
           <div className="flex flex-wrap gap-2 text-sm">
             {providers.map((p) => (
               <Link
                 key={p.slug}
-                href={`/mobile/${p.slug}${regionQuery}`}
+                href={operatorPath(p.slug, region, operatorRegions.get(p.slug) ?? [])}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-brand hover:border-brand"
               >
                 {p.name}
@@ -135,7 +151,7 @@ export async function MobileCatalog({
           {collections.map((c) => (
             <Link
               key={c.slug}
-              href={`/mobile/podborka/${c.slug}${regionQuery}`}
+              href={catalogPath(`/mobile/podborka/${c.slug}`, catalogRegion, globalDefault)}
               className="rounded-full bg-slate-100 px-3 py-1 text-slate-700 hover:bg-slate-200"
             >
               {c.short}

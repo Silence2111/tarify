@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import { MobileCatalog } from "@/components/MobileCatalog";
+import { getMobileRegionContext } from "@/lib/catalog";
+import { catalogPath } from "@/lib/regions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +16,13 @@ export const metadata: Metadata = {
 };
 
 export default async function MobilePage({ searchParams }: Props) {
-  const { region } = await searchParams;
-  return <MobileCatalog requestedRegion={region} />;
+  const [{ region: legacy }, { regions, defaultRegion }] = await Promise.all([
+    searchParams,
+    getMobileRegionContext(),
+  ]);
+  // Старые ссылки ?region= — на адрес с регионом в пути.
+  if (legacy !== undefined) {
+    permanentRedirect(catalogPath("/mobile", regions.includes(legacy) ? legacy : null, defaultRegion));
+  }
+  return <MobileCatalog region={defaultRegion} />;
 }

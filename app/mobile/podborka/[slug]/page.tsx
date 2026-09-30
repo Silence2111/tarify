@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { MobileCatalog } from "@/components/MobileCatalog";
-import { getCatalogPlans, getCatalogRegions } from "@/lib/catalog";
-import { pickRegion } from "@/lib/catalog-filter";
-import { collectionPlans, findCollection, MIN_INDEXABLE, priceStats } from "@/lib/collections";
-import { formatRub, plural } from "@/lib/format";
+import { getMobileRegionContext } from "@/lib/catalog";
+import { collectionMetadata } from "@/lib/collection-meta";
+import { findCollection } from "@/lib/collections";
+import { catalogPath } from "@/lib/regions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,28 +14,24 @@ type Props = {
 };
 
 // SEO под запросы «тарифы с безлимитным интернетом», «без абонентской платы» и т. п.
-// В описании — свои цифры; подборку с 1–2 тарифами не отдаём в индекс.
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
-  const [{ slug }, { region: requested }] = await Promise.all([params, searchParams]);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
   const collection = findCollection(slug);
   if (!collection) return { title: "Подборка не найдена" };
-
-  const region = pickRegion(requested, await getCatalogRegions("MOBILE"));
-  const stats = priceStats(collectionPlans(collection, await getCatalogPlans("MOBILE", { region })));
-  const where = region ? ` — ${region}` : "";
-  return {
-    title: `${collection.title}${where}`,
-    description: stats
-      ? `${stats.count} ${plural(stats.count, "тариф", "тарифа", "тарифов")} от ${formatRub(stats.min)} в месяц${where}. ${collection.description} Сравните и оформите онлайн.`
-      : collection.description,
-    alternates: { canonical: `/mobile/podborka/${collection.slug}` },
-    ...(stats && stats.count >= MIN_INDEXABLE ? {} : { robots: { index: false, follow: true } }),
-  };
+  const { defaultRegion } = await getMobileRegionContext();
+  return collectionMetadata(collection, defaultRegion, `/mobile/podborka/${collection.slug}`);
 }
 
 export default async function CollectionPage({ params, searchParams }: Props) {
-  const [{ slug }, { region }] = await Promise.all([params, searchParams]);
+  const [{ slug }, { region: legacy }] = await Promise.all([params, searchParams]);
   const collection = findCollection(slug);
   if (!collection) notFound();
-  return <MobileCatalog requestedRegion={region} collection={collection} />;
+  const { regions, defaultRegion } = await getMobileRegionContext();
+  // Старые ссылки ?region= — на адрес с регионом в пути.
+  if (legacy !== undefined) {
+    permanentRedirect(
+      catalogPath(`/mobile/podborka/${collection.slug}`, regions.includes(legacy) ? legacy : null, defaultRegion),
+    );
+  }
+  return <MobileCatalog region={defaultRegion} collection={collection} />;
 }

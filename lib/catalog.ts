@@ -1,3 +1,4 @@
+import { pickRegion } from "@/lib/catalog-filter";
 import { toPlanView } from "@/lib/coverage";
 import { prisma } from "@/lib/db";
 import { LATEST_PRICE_CHANGE } from "@/lib/price-history";
@@ -68,4 +69,40 @@ export async function getCatalogProviders(type: PlanType) {
     select: { slug: true, name: true },
     orderBy: { name: "asc" },
   });
+}
+
+/** Оператор с активными мобильными тарифами; null — страницы оператора нет. */
+export function findMobileOperator(slug: string) {
+  return prisma.provider.findFirst({
+    where: { slug, isActive: true, plans: { some: { type: "MOBILE", isActive: true } } },
+    select: { slug: true, name: true },
+  });
+}
+
+/**
+ * Регионы, где у оператора свои цены: слаг оператора → регионы по алфавиту. У
+ * виртуальных операторов с единой ценой по России (Т-Мобайл, СберМобайл) их нет —
+ * и страниц «оператор + регион» тоже: они были бы копиями друг друга.
+ */
+export async function getMobileOperatorRegions(): Promise<Map<string, string[]>> {
+  const rows = await prisma.plan.findMany({
+    where: { type: "MOBILE", isActive: true, region: { not: null }, provider: { isActive: true } },
+    select: { region: true, provider: { select: { slug: true } } },
+    distinct: ["providerId", "region"],
+    orderBy: { region: "asc" },
+  });
+  const map = new Map<string, string[]>();
+  for (const r of rows) {
+    if (!r.region) continue;
+    const list = map.get(r.provider.slug);
+    if (list) list.push(r.region);
+    else map.set(r.provider.slug, [r.region]);
+  }
+  return map;
+}
+
+/** Регионы каталога мобильной связи и регион по умолчанию — он живёт на базовых адресах. */
+export async function getMobileRegionContext() {
+  const regions = await getCatalogRegions("MOBILE");
+  return { regions, defaultRegion: pickRegion(undefined, regions) };
 }
