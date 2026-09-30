@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 // Выгрузка лидов в CSV для сверки с CPA-сетью/провайдером.
 // По умолчанию — только подтверждённые (за них платит провайдер). ?status=ALL — все.
+// id — метка subid для передачи заявки в сеть: по ней постбэк вернёт статус.
 const STATUSES = ["NEW", "CALLED", "CONFIRMED", "REJECTED"] as const;
 
 function csvCell(v: unknown): string {
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const header = [
     "id", "created_at", "status", "name", "phone", "company", "address", "provider", "plan",
-    "payout_rub",
+    "payout_rub", "network_status",
   ];
   const lines = [header.join(",")];
   for (const l of leads) {
@@ -42,7 +43,9 @@ export async function GET(req: NextRequest) {
         l.addressText,
         l.plan?.provider.name ?? "",
         l.plan?.name ?? "",
-        l.plan?.provider.payoutRub ?? "",
+        // Сумма от сети точнее ставки провайдера.
+        l.payoutRub ?? l.plan?.provider.payoutRub ?? "",
+        l.networkStatusRaw ?? "",
       ]
         .map(csvCell)
         .join(","),

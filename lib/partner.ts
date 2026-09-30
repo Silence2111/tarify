@@ -30,6 +30,38 @@ export function parseConversionStatus(raw: string): ConversionStatus {
   return "PENDING";
 }
 
+const FINAL: ReadonlySet<ConversionStatus> = new Set(["APPROVED", "REJECTED"]);
+
+/**
+ * Применять ли статус из постбэка. Постбэки доходят не по порядку — сеть повторяет
+ * недоставленные, — и поздний «pending» после «approved» спрятал бы заработанное.
+ * Поэтому промежуточный статус (в обработке, холд) не перетирает итоговый. Итоговый
+ * меняет любой: сеть может отклонить одобренное (фрод) или одобрить после спора.
+ */
+export function shouldApplyStatus(
+  current: ConversionStatus | null,
+  incoming: ConversionStatus,
+): boolean {
+  return !(current != null && FINAL.has(current) && !FINAL.has(incoming));
+}
+
+export type LeadStatus = "NEW" | "CALLED" | "CONFIRMED" | "REJECTED";
+
+/**
+ * Статус заявки по постбэку сети. Одобрено — подключение подтверждено, за него
+ * платят; отклонено — отказ, даже если вручную стояло «Подключено»: деньги решает
+ * сеть. Пока сеть работает с заявкой, новая становится «в работе», а закрытую
+ * вручную промежуточный статус не трогает.
+ */
+export function leadStatusFromConversion(
+  current: LeadStatus,
+  incoming: ConversionStatus,
+): LeadStatus {
+  if (incoming === "APPROVED") return "CONFIRMED";
+  if (incoming === "REJECTED") return "REJECTED";
+  return current === "NEW" ? "CALLED" : current;
+}
+
 /** Сумма из постбэка: «750», «750.00», «1 234,5» → рубли целым числом; мусор — null. */
 export function parsePayout(raw: string | null): number | null {
   if (!raw) return null;

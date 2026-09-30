@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { isBot, parseConversionStatus, parsePayout, refererPath, withSubid } from "@/lib/partner";
+import {
+  isBot,
+  leadStatusFromConversion,
+  parseConversionStatus,
+  parsePayout,
+  refererPath,
+  shouldApplyStatus,
+  withSubid,
+} from "@/lib/partner";
 
 /**
  * Переходы и постбэк — единственный способ увидеть деньги с кнопки «Оформить».
@@ -67,5 +75,33 @@ describe("роботы и откуда перешли", () => {
     expect(refererPath("https://tarify.ru/mobile?region=X", "tarify.ru")).toBe("/mobile?region=X");
     expect(refererPath("https://other.ru/page", "tarify.ru")).toBeNull();
     expect(refererPath("не ссылка", "tarify.ru")).toBeNull();
+  });
+});
+
+describe("порядок статусов из постбэка", () => {
+  it("промежуточный не перетирает итоговый — поздний повтор «pending» не прячет деньги", () => {
+    expect(shouldApplyStatus("APPROVED", "PENDING")).toBe(false);
+    expect(shouldApplyStatus("APPROVED", "HOLD")).toBe(false);
+    expect(shouldApplyStatus("REJECTED", "PENDING")).toBe(false);
+  });
+  it("итоговый меняет любой, первый статус применяется всегда", () => {
+    expect(shouldApplyStatus("APPROVED", "REJECTED")).toBe(true);
+    expect(shouldApplyStatus("REJECTED", "APPROVED")).toBe(true);
+    expect(shouldApplyStatus("HOLD", "PENDING")).toBe(true);
+    expect(shouldApplyStatus(null, "HOLD")).toBe(true);
+  });
+});
+
+describe("статус заявки по постбэку", () => {
+  it("одобрено — подключение, отклонено — отказ, даже поверх ручного статуса", () => {
+    expect(leadStatusFromConversion("NEW", "APPROVED")).toBe("CONFIRMED");
+    expect(leadStatusFromConversion("REJECTED", "APPROVED")).toBe("CONFIRMED");
+    expect(leadStatusFromConversion("CONFIRMED", "REJECTED")).toBe("REJECTED");
+  });
+  it("пока сеть работает, новая — «в работе», закрытая вручную не меняется", () => {
+    expect(leadStatusFromConversion("NEW", "PENDING")).toBe("CALLED");
+    expect(leadStatusFromConversion("NEW", "HOLD")).toBe("CALLED");
+    expect(leadStatusFromConversion("CONFIRMED", "HOLD")).toBe("CONFIRMED");
+    expect(leadStatusFromConversion("REJECTED", "PENDING")).toBe("REJECTED");
   });
 });

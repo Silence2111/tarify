@@ -101,6 +101,10 @@ export default async function ClicksPage() {
             </code>
           </li>
           <li>
+            Тот же адрес принимает статусы заявок с обзвоном: если передать заявку в сеть с её
+            номером в метке, статус и сумма появятся в «Заявках».
+          </li>
+          <li>
             Токен — переменная <code>POSTBACK_TOKEN</code> в Vercel.{" "}
             {tokenSet ? (
               <span className="text-green-700">Задана — приём включён.</span>

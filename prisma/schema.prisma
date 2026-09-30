@@ -186,6 +186,14 @@ model Lead {
   consent     Boolean    @default(false) // согласие на обработку ПДн (152-ФЗ)
   createdAt   DateTime   @default(now())
 
+  // Постбэк CPA-сети: заявку передали в сеть с её id в метке subid, сеть сама
+  // возвращает статус и сумму. Одобрено → «Подключено», отклонено → «Отказ».
+  networkStatus    ConversionStatus?
+  networkStatusRaw String? // статус как его прислала сеть
+  network          String?
+  networkAt        DateTime?
+  payoutRub        Int? // сумма из постбэка, ₽ — точнее ставки провайдера
+
   @@index([status])
   @@index([createdAt])
 }
