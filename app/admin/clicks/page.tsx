@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { formatRub, plural } from "@/lib/format";
+import { formatDateTime, formatRub, plural } from "@/lib/format";
 import { siteUrl } from "@/lib/site";
 import { AdminNav } from "@/components/AdminNav";
 
@@ -85,9 +85,23 @@ export default async function ClicksPage() {
         <Stat label="В холде" value={formatRub(total.hold)} />
       </div>
 
-      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-sm">
-        <div className="font-semibold text-slate-800">Как подключить постбэк</div>
-        <ol className="mt-2 list-inside list-decimal space-y-1 text-slate-600">
+      <details open={!tokenSet} className="group mt-6 rounded-xl border border-slate-200 bg-white text-sm">
+        <summary className="flex cursor-pointer list-none items-center gap-3 p-4 [&::-webkit-details-marker]:hidden">
+          <span className="font-semibold text-slate-800">Как подключить постбэк</span>
+          {tokenSet ? (
+            <span className="rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+              приём включён
+            </span>
+          ) : (
+            <span className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+              приём выключен
+            </span>
+          )}
+          <span className="ml-auto text-slate-400 transition group-open:rotate-180" aria-hidden>
+            ▾
+          </span>
+        </summary>
+        <ol className="list-inside list-decimal space-y-1 px-4 pb-4 text-slate-600">
           <li>
             В партнёрскую ссылку тарифа (колонка <code>url</code> в CSV) вставьте{" "}
             <code>{"{subid}"}</code> туда, куда сеть просит передавать метку, например{" "}
@@ -113,93 +127,74 @@ export default async function ClicksPage() {
             )}
           </li>
         </ol>
-      </div>
+      </details>
 
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-400">
         По операторам
       </h2>
-      <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-3 py-2">Оператор</th>
-              <th className="px-3 py-2">Переходы</th>
-              <th className="px-3 py-2">Конверсии</th>
-              <th className="px-3 py-2">Одобрено</th>
-              <th className="px-3 py-2">Заработано</th>
-              <th className="px-3 py-2">В холде</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-slate-400">
-                  Переходов пока нет
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2">{r.name}</td>
-                  <td className="px-3 py-2">{r.clicks}</td>
-                  <td className="px-3 py-2">
-                    {r.conversions}
-                    {r.clicks > 0 && (
-                      <span className="text-xs text-slate-400">
-                        {" "}
-                        · {Math.round((r.conversions / r.clicks) * 1000) / 10}%
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{r.approved}</td>
-                  <td className="px-3 py-2 font-medium text-green-700">{formatRub(r.earned)}</td>
-                  <td className="px-3 py-2 text-slate-600">{formatRub(r.hold)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {rows.length === 0 ? (
+        <Empty>Переходов пока нет</Empty>
+      ) : (
+        <ul className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+          {rows.map((r) => (
+            <li key={r.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+              <div className="min-w-0">
+                <div className="font-medium text-slate-800">{r.name}</div>
+                <div className="text-xs text-slate-500">
+                  {r.clicks} {plural(r.clicks, "переход", "перехода", "переходов")} ·{" "}
+                  {r.conversions} {plural(r.conversions, "конверсия", "конверсии", "конверсий")}
+                  {r.clicks > 0 && ` (${Math.round((r.conversions / r.clicks) * 1000) / 10}%)`} ·
+                  одобрено {r.approved}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-medium text-green-700">{formatRub(r.earned)}</div>
+                {r.hold > 0 && (
+                  <div className="text-xs text-slate-500">в холде {formatRub(r.hold)}</div>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-slate-400">
         Последние {recent.length} {plural(recent.length, "переход", "перехода", "переходов")}
       </h2>
-      <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-3 py-2">Время</th>
-              <th className="px-3 py-2">Оператор · тариф</th>
-              <th className="px-3 py-2">Откуда</th>
-              <th className="px-3 py-2">Статус</th>
-              <th className="px-3 py-2">Сумма</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recent.map((c) => (
-              <tr key={c.id} className="border-t border-slate-100 align-top">
-                <td className="whitespace-nowrap px-3 py-2 text-slate-500">
-                  {c.createdAt.toLocaleString("ru-RU")}
-                </td>
-                <td className="px-3 py-2">
+      {recent.length === 0 ? (
+        <Empty>Переходов пока нет</Empty>
+      ) : (
+        <ul className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+          {recent.map((c) => (
+            <li key={c.id} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
+              <div className="min-w-0">
+                <div className="text-slate-800">
                   {c.provider.name}
                   {c.plan && <span className="text-slate-500"> · {c.plan.name}</span>}
-                </td>
-                <td className="px-3 py-2 text-xs text-slate-500">{c.page ?? "—"}</td>
-                <td className="px-3 py-2">
-                  {c.status ? STATUS_LABEL[c.status] : "—"}
-                  {c.statusRaw && c.status && (
-                    <span className="text-xs text-slate-400"> ({c.statusRaw})</span>
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2">
-                  {c.payoutRub != null ? formatRub(c.payoutRub) : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+                <div className="break-words text-xs text-slate-400">
+                  {formatDateTime(c.createdAt)}
+                  {c.page && ` · ${c.page}`}
+                </div>
+              </div>
+              <div className="shrink-0 text-right text-xs">
+                <div className={c.status === "APPROVED" ? "font-medium text-green-700" : "text-slate-500"}>
+                  {c.status ? STATUS_LABEL[c.status] : "без статуса"}
+                </div>
+                {c.payoutRub != null && <div className="text-slate-700">{formatRub(c.payoutRub)}</div>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-2 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-400">
+      {children}
     </div>
   );
 }

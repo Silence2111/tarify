@@ -34,6 +34,14 @@ export function formatShortDate(value: Date | string): string {
   return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}`;
 }
 
+/** «12 сент., 14:05» — год только не текущий: «12 сент. 2025, 14:05». Для админки. */
+export function formatDateTime(value: Date | string, now: Date = new Date()): string {
+  const d = moscow(value);
+  const year = d.getUTCFullYear() === moscow(now).getUTCFullYear() ? "" : ` ${d.getUTCFullYear()}`;
+  const time = [d.getUTCHours(), d.getUTCMinutes()].map((n) => String(n).padStart(2, "0")).join(":");
+  return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}${year}, ${time}`;
+}
+
 /** «12 сентября 2026» */
 export function formatDay(value: Date | string): string {
   const d = moscow(value);

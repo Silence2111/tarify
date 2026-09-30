@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { parseLeadUpdate } from "@/lib/lead-update";
 
-const STATUSES = ["NEW", "CALLED", "CONFIRMED", "REJECTED"] as const;
-type Status = (typeof STATUSES)[number];
-
-// Обновление статуса заявки оператором: NEW → CALLED → CONFIRMED/REJECTED.
+// Оператор меняет статус заявки (NEW → CALLED → CONFIRMED/REJECTED) и/или заметку к ней.
 // CONFIRMED = подтверждённое подключение, за которое платит провайдер.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -16,21 +14,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { status, comment } = (body ?? {}) as Record<string, unknown>;
-  if (typeof status !== "string" || !STATUSES.includes(status as Status)) {
-    return NextResponse.json({ error: "Недопустимый статус" }, { status: 400 });
+  const update = parseLeadUpdate(body);
+  if ("error" in update) {
+    return NextResponse.json({ error: update.error }, { status: 400 });
   }
 
   try {
     const lead = await prisma.lead.update({
       where: { id },
-      data: {
-        status: status as Status,
-        ...(typeof comment === "string" ? { comment } : {}),
-      },
-      select: { id: true, status: true },
+      data: update.data,
+      select: { id: true, status: true, comment: true },
     });
-    return NextResponse.json({ ok: true, id: lead.id, status: lead.status });
+    return NextResponse.json({ ok: true, ...lead });
   } catch {
     return NextResponse.json({ error: "Заявка не найдена" }, { status: 404 });
   }

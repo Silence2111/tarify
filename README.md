@@ -15,7 +15,7 @@
 | Сравнение + фильтры | [components/ResultsList.tsx](components/ResultsList.tsx) | Фильтр по цене/скорости/ТВ, сортировка |
 | Заявка | [components/LeadForm.tsx](components/LeadForm.tsx) → [app/api/leads/route.ts](app/api/leads/route.ts) | Захват лида |
 | Гео-SEO | [app/[city]/page.tsx](app/[city]/page.tsx), [app/[city]/[street]/page.tsx](app/[city]/[street]/page.tsx), [app/sitemap.ts](app/sitemap.ts) | Страницы под город и улицу — органический трафик |
-| Заявки (админка) | [app/admin/leads/page.tsx](app/admin/leads/page.tsx) | Воронка, статусы, аппрув, выручка по `payoutRub`, выгрузка CSV для CPA-сети |
+| Заявки (админка) | [app/admin/leads/page.tsx](app/admin/leads/page.tsx) | Карточки для обзвона и с телефона: звонок в одно касание, статус, заметка оператора; воронка — она же фильтр, аппрув, выручка по `payoutRub`, выгрузка CSV для CPA-сети |
 | Покрытие (админка) | [app/admin/coverage/page.tsx](app/admin/coverage/page.tsx) + [lib/coverage-import.ts](lib/coverage-import.ts) | Статистика матрицы дом×провайдер + импорт CSV-фидов ([data/COVERAGE.md](data/COVERAGE.md)) |
 | Тарифы (админка) | [app/admin/plans/page.tsx](app/admin/plans/page.tsx) + [lib/plans-import.ts](lib/plans-import.ts) | Все тарифы, где провайдер виден на сайте и почему нет, импорт прайса CSV ([data/PLANS.md](data/PLANS.md)) |
 | Мобильная связь | [app/mobile/](app/mobile/) + [components/MobileCatalog.tsx](components/MobileCatalog.tsx) + [lib/catalog.ts](lib/catalog.ts) | Каталог тарифов операторов с ценами по регионам, фильтры (ГБ, минуты, eSIM), «Оформить» по партнёрской ссылке |

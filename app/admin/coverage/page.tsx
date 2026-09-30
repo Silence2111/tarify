@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { plural } from "@/lib/format";
+import { formatDateTime, plural } from "@/lib/format";
 import { HOME_PLAN_TYPES } from "@/lib/types";
 import { AdminNav } from "@/components/AdminNav";
 import { CoverageImport } from "@/components/CoverageImport";
@@ -28,7 +28,7 @@ export default async function CoveragePage() {
     prisma.coverage.aggregate({ _min: { updatedAt: true }, _max: { updatedAt: true } }),
   ]);
 
-  const fmtDate = (d: Date | null) => (d ? d.toLocaleString("ru-RU") : "—");
+  const fmtDate = (d: Date | null) => (d ? formatDateTime(d) : "—");
 
   return (
     <div>
