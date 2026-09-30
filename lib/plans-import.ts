@@ -60,7 +60,17 @@ export type PlansImportSummary = {
   plansUpdated: number;
   plansHidden: number; // тарифы провайдеров из файла, которых в файле не оказалось
   pricesChanged: number; // подорожали или подешевели — попадут в ленту изменений цен
+  changes: ImportedPriceChange[]; // всё, что попало в историю цен: для поста в Telegram
   errors: ImportError[];
+};
+
+export type ImportedPriceChange = {
+  provider: string; // отображаемое имя
+  plan: string;
+  region: string | null;
+  kind: "NEW" | "UP" | "DOWN" | "REMOVED";
+  oldPrice: number | null;
+  newPrice: number | null;
 };
 
 const YES = ["да", "yes", "true", "+"];
@@ -272,18 +282,24 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
     plansUpdated: 0,
     plansHidden: 0,
     pricesChanged: 0,
+    changes: [],
     errors,
   };
   if (errors.length > 0) return summary;
 
   // Провайдеры: создать новых, обновить имя и ставку у существующих.
   const providerIds = new Map<string, string>();
+  const providerNames = new Map<string, string>();
   for (const slug of new Set(rows.map((r) => r.provider))) {
     const own = rows.filter((r) => r.provider === slug);
     const name = own.find((p) => p.providerName)?.providerName ?? null;
     const payout = own.find((p) => p.payout != null)?.payout ?? null;
 
-    let provider = await prisma.provider.findUnique({ where: { slug }, select: { id: true } });
+    let provider: { id: string; name?: string } | null = await prisma.provider.findUnique({
+      where: { slug },
+      select: { id: true, name: true },
+    });
+    providerNames.set(slug, name ?? provider?.name ?? slug);
     if (!provider) {
       provider = await prisma.provider.create({
         data: { slug, name: name ?? slug, payoutRub: payout },
@@ -322,6 +338,7 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
     // в «новых тарифах», которые на самом деле просто впервые попали на сайт.
     const changes: Prisma.PriceChangeCreateManyInput[] = [];
     const firstLoad = existing.length === 0;
+    const planNames = new Map(existing.map((p) => [p.id, p.name]));
 
     for (const row of plans) {
       const data = {
@@ -368,6 +385,7 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
           select: { id: true },
         });
         listed.add(created.id);
+        planNames.set(created.id, row.name);
         summary.plansCreated++;
         if (!firstLoad) {
           changes.push({ planId: created.id, kind: "NEW", oldPrice: null, newPrice: row.priceMonthly });
@@ -386,7 +404,19 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
         changes.push({ planId: p.id, kind: "REMOVED", oldPrice: p.priceMonthly, newPrice: null });
       }
     }
-    if (changes.length > 0) await prisma.priceChange.createMany({ data: changes });
+    if (changes.length > 0) {
+      await prisma.priceChange.createMany({ data: changes });
+      for (const c of changes) {
+        summary.changes.push({
+          provider: providerNames.get(plans[0].provider) ?? plans[0].provider,
+          plan: planNames.get(c.planId) ?? "",
+          region,
+          kind: c.kind,
+          oldPrice: c.oldPrice ?? null,
+          newPrice: c.newPrice ?? null,
+        });
+      }
+    }
   }
 
   return summary;

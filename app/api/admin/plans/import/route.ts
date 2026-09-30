@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { importPlansCsv } from "@/lib/plans-import";
+import { priceChangesPost } from "@/lib/price-post";
+import { siteUrl } from "@/lib/site";
+import { sendTelegram } from "@/lib/telegram";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -32,6 +35,16 @@ export async function POST(req: NextRequest) {
       { error: "В файле есть ошибки — ничего не загружено", ...summary },
       { status: 422 },
     );
+  }
+
+  // Изменения цен — постом в Telegram-канал, после ответа: загрузка не ждёт Telegram.
+  const channel = process.env.TELEGRAM_CHANNEL_ID;
+  const post = channel ? priceChangesPost(summary.changes, siteUrl()) : null;
+  if (channel && post) {
+    after(async () => {
+      const sent = await sendTelegram(channel, post);
+      if (!sent.ok) console.error("Пост об изменениях цен не ушёл в Telegram:", sent.error);
+    });
   }
   return NextResponse.json(summary);
 }

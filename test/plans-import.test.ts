@@ -264,6 +264,13 @@ describe("загрузка прайса в БД", () => {
       ],
     });
     expect(summary.pricesChanged).toBe(2);
+    // Для поста в Telegram: с названиями тарифов, в том числе только что созданного.
+    expect(summary.changes).toEqual([
+      { provider: "mts", plan: "Базовый 20", region: "Москва", kind: "UP", oldPrice: 450, newPrice: 500 },
+      { provider: "mts", plan: "Оптимальный 40", region: "Москва", kind: "DOWN", oldPrice: 750, newPrice: 700 },
+      { provider: "mts", plan: "Новый 60", region: "Москва", kind: "NEW", oldPrice: null, newPrice: 900 },
+      { provider: "mts", plan: "Старый", region: "Москва", kind: "REMOVED", oldPrice: 300, newPrice: null },
+    ]);
   });
 
   it("первая загрузка прайса — не новость; вернувшийся скрытый тариф — новый", async () => {

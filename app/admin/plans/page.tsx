@@ -64,7 +64,13 @@ export default async function PlansPage() {
       <p className="mt-1 text-sm text-slate-500">
         В поиск по адресу провайдер попадает, только если у него есть покрытие и активный домашний
         тариф. Мобильная связь и счета для бизнеса покрытия не требуют. Тарифы загружаются
-        CSV-прайсом: что в файле — то и на сайте.
+        CSV-прайсом: что в файле — то и на сайте. Изменения цен попадают в{" "}
+        <a href="/izmeneniya-cen" className="text-brand hover:underline">
+          ленту
+        </a>
+        {process.env.TELEGRAM_CHANNEL_ID && process.env.TELEGRAM_BOT_TOKEN
+          ? ` и постом в Telegram-канал ${process.env.TELEGRAM_CHANNEL_ID}.`
+          : " (пост в Telegram-канал — если задать TELEGRAM_BOT_TOKEN и TELEGRAM_CHANNEL_ID)."}
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
