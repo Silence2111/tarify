@@ -24,6 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const urls: MetadataRoute.Sitemap = [
     { url: base, changeFrequency: "weekly", priority: 1 },
     { url: `${base}/mobile`, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${base}/mobile/podbor`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${base}/business`, changeFrequency: "monthly", priority: 0.7 },
   ];
   for (const o of operators) {

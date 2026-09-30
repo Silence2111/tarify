@@ -80,7 +80,7 @@ export default async function HomePage() {
       </section>
 
       {/* Другие каталоги */}
-      <section className="mt-10 grid gap-4 sm:grid-cols-2">
+      <section className="mt-10 grid gap-4 sm:grid-cols-3">
         <Link
           href="/mobile"
           className="rounded-xl border border-slate-200 bg-white p-5 hover:border-brand"
@@ -88,6 +88,15 @@ export default async function HomePage() {
           <div className="font-semibold text-slate-800">Мобильная связь</div>
           <div className="mt-1 text-sm text-slate-500">
             Тарифы операторов с ценами вашего региона: гигабайты, минуты, eSIM, перенос номера.
+          </div>
+        </Link>
+        <Link
+          href="/mobile/podbor"
+          className="rounded-xl border border-slate-200 bg-white p-5 hover:border-brand"
+        >
+          <div className="font-semibold text-slate-800">Переплачиваете за связь?</div>
+          <div className="mt-1 text-sm text-slate-500">
+            Укажите свой расход и платёж — подберём тариф дешевле и посчитаем экономию за год.
           </div>
         </Link>
         <Link

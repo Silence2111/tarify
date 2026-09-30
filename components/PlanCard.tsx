@@ -10,6 +10,7 @@ export function PlanCard({
   buildingId,
   eyebrow,
   actionLabel = "Оформить на сайте оператора",
+  priceNote,
 }: {
   plan: PlanView;
   providerName: string;
@@ -17,6 +18,7 @@ export function PlanCard({
   buildingId?: string;
   eyebrow?: string; // имя оператора над названием — в каталогах, где тарифы идут общим списком
   actionLabel?: string;
+  priceNote?: string; // под ценой: «дешевле на 450 ₽» в подборе под расход
 }) {
   const mobile = plan.type === "MOBILE";
   const gb = amountText(plan.mobileGb, "ГБ");
@@ -55,13 +57,17 @@ export function PlanCard({
             </ul>
           )}
         </div>
-        <div className="text-right">
+        {/* ml-auto: на узком экране блок цены переносится под название и остаётся справа */}
+        <div className="ml-auto text-right">
           <div className="text-xl font-bold text-slate-900">{formatRub(plan.priceMonthly)}</div>
           <div className="text-xs text-slate-400">в месяц</div>
           {plan.priceFirst != null && plan.priceFirst < plan.priceMonthly && (
             <div className="mt-1 text-xs font-medium text-green-600">
               {formatRub(plan.priceFirst)} за первый месяц
             </div>
+          )}
+          {priceNote && (
+            <div className="mt-1 text-xs font-semibold text-green-700">{priceNote}</div>
           )}
         </div>
       </div>

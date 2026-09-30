@@ -92,6 +92,14 @@ export async function MobileCatalog({
       {updatedAt && (
         <p className="mt-1 text-sm text-slate-400">Цены обновлены {formatDate(updatedAt)}</p>
       )}
+      {regionPlans.length > 0 && (
+        <Link
+          href={`/mobile/podbor${regionQuery}`}
+          className="mt-3 inline-block rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 hover:border-green-400"
+        >
+          Переплачиваете за связь? <span className="font-semibold">Подберите тариф под свой расход →</span>
+        </Link>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         <RegionSelect regions={regions} current={region} basePath={basePath} />

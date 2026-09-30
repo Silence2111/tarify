@@ -28,7 +28,8 @@ export function meetsAtLeast(value: number | null, min: number): boolean {
   return (value ?? 0) >= min;
 }
 
-const gbRank = (v: number | null) => (v === UNLIMITED ? Number.POSITIVE_INFINITY : (v ?? 0));
+/** Для сортировки по гигабайтам: безлимит — больше любого пакета. */
+export const gbRank = (v: number | null) => (v === UNLIMITED ? Number.POSITIVE_INFINITY : (v ?? 0));
 
 export function filterCatalogPlans(plans: CatalogPlan[], f: CatalogFilters): CatalogPlan[] {
   const list = plans.filter(
