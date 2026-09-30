@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE, checkPassword, sessionToken } from "@/lib/admin-auth";
+import { ADMIN_COOKIE, login } from "@/lib/admin-auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -28,12 +28,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
 
-  if (!(await checkPassword(password))) {
+  let token: string | null;
+  try {
+    token = await login(password);
+  } catch (e) {
+    // Ошибка настройки (битый ADMIN_PASSWORD_HASH, нет ADMIN_SECRET): подробности — в лог,
+    // а на странице входа — что вход не настроен, а не «Неверный пароль».
+    console.error("[admin login]", e);
+    return NextResponse.json(
+      { error: "Вход не настроен — подробности в логах сервера" },
+      { status: 500 },
+    );
+  }
+  if (!token) {
     return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
   }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(ADMIN_COOKIE, await sessionToken(), {
+  res.cookies.set(ADMIN_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production", // под HTTPS в проде

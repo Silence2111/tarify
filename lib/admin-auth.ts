@@ -1,8 +1,17 @@
 // Аутентификация админки. Edge-safe: только Web Crypto + env (работает и в middleware).
-// Пароль задаётся через ADMIN_PASSWORD. В dev есть дефолт "admin"; в проде
-// незаданная переменная — это ошибка (fail-fast), чтобы прод не поднялся с
-// общеизвестным дефолтным паролем/секретом.
-// В cookie кладём не пароль, а его хеш с секретом — middleware сверяет хеш.
+//
+// Войти можно любым из двух паролей:
+// 1) по хэшу — ADMIN_PASSWORD_HASH, а если переменная не задана, хэш пароля владельца
+//    этого сайта из константы ниже (npm run admin:password). Сам пароль по хэшу не
+//    восстановить, поэтому хэш может лежать в публичном репозитории;
+// 2) ADMIN_PASSWORD открытым текстом — вместе с ADMIN_SECRET. В dev без неё пароль
+//    "admin"; в проде дефолта нет, а без ADMIN_SECRET вход по ней — ошибка (fail-fast),
+//    чтобы прод не работал с общеизвестным секретом.
+//
+// Хэш: key = PBKDF2-SHA256(пароль, соль, итерации), в хэше хранится только SHA-256(key).
+// После входа key и становится сессионной cookie: middleware сверяет её SHA-256 с хэшем —
+// cookie проверяется без пароля и без секрета, а подделать её по хэшу нельзя. Для
+// ADMIN_PASSWORD в cookie — хеш пароля с секретом, middleware считает его сам.
 //
 // Сравнения — постоянного времени (timingSafeEqualHex): и логин, и проверка
 // cookie не должны утекать посимвольно через тайминг. Node'овский
@@ -14,28 +23,62 @@
 
 export const ADMIN_COOKIE = "admin_session";
 
-function getPassword(): string {
-  const v = process.env.ADMIN_PASSWORD;
-  if (v) return v;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("ADMIN_PASSWORD не задан — обязателен в production");
+// Хэш пароля владельца этого сайта. Своя копия сайта — свой пароль: задайте
+// ADMIN_PASSWORD_HASH или замените константу (npm run admin:password).
+const OWNER_PASSWORD_HASH =
+  "pbkdf2:600000:40b51b19ab209be71a5c57652ab2ec71:ef6353a63bad54616deb957e23c456426115d81eea0df2658cff4cd405e7618c";
+
+const PBKDF2_ITERATIONS = 600_000; // рекомендация OWASP для PBKDF2-SHA256
+
+type PasswordHash = { iterations: number; salt: Uint8Array<ArrayBuffer>; check: string };
+
+function passwordHash(): PasswordHash {
+  const raw = process.env.ADMIN_PASSWORD_HASH?.trim() || OWNER_PASSWORD_HASH;
+  const m = /^pbkdf2:([1-9]\d*):([0-9a-f]{32}):([0-9a-f]{64})$/.exec(raw);
+  if (!m) {
+    throw new Error("ADMIN_PASSWORD_HASH: неверный формат — получите хэш командой npm run admin:password");
   }
-  return "admin";
+  return { iterations: Number(m[1]), salt: fromHex(m[2]), check: m[3] };
 }
 
-function getSecret(): string {
+function envPassword(): string | null {
+  const v = process.env.ADMIN_PASSWORD;
+  if (v) return v;
+  return process.env.NODE_ENV === "production" ? null : "admin";
+}
+
+// В проде без ADMIN_SECRET — null: общеизвестного дефолта там нет, вход по
+// ADMIN_PASSWORD выключен (login об этом сообщит ошибкой).
+function getSecret(): string | null {
   const v = process.env.ADMIN_SECRET;
   if (v) return v;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("ADMIN_SECRET не задан — обязателен в production");
-  }
-  return "tarify-admin-secret";
+  return process.env.NODE_ENV === "production" ? null : "tarify-admin-secret";
+}
+
+const toHex = (bytes: ArrayBuffer | Uint8Array) =>
+  [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+function fromHex(hex: string): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return bytes;
 }
 
 async function sha256hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return toHex(await crypto.subtle.digest("SHA-256", data));
+}
+
+async function pbkdf2hex(password: string, salt: Uint8Array<ArrayBuffer>, iterations: number) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
+  return toHex(bits);
 }
 
 /**
@@ -57,20 +100,42 @@ export async function safeEqual(a: string, b: string): Promise<boolean> {
   return timingSafeEqualHex(ha, hb);
 }
 
-// Значение сессионной cookie для текущего пароля.
-export async function sessionToken(): Promise<string> {
-  return sha256hex(`${getPassword()}:${getSecret()}`);
+/**
+ * Хэш пароля для ADMIN_PASSWORD_HASH: pbkdf2:итерации:соль:SHA-256(ключ). Без «$» —
+ * его подставляют как переменную shell, .env-файлы Next.js и Docker Compose.
+ */
+export async function hashPassword(password: string, iterations = PBKDF2_ITERATIONS): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await pbkdf2hex(password, salt, iterations);
+  return `pbkdf2:${iterations}:${toHex(salt)}:${await sha256hex(key)}`;
 }
 
-export async function checkPassword(input: string): Promise<boolean> {
-  // Хешируем оба значения и сверяем дайджесты постоянного времени: сравнение не
-  // зависит ни от содержимого, ни от длины введённого пароля.
-  const [inputHash, passHash] = await Promise.all([sha256hex(input), sha256hex(getPassword())]);
-  return timingSafeEqualHex(inputHash, passHash);
+// Cookie для входа по ADMIN_PASSWORD.
+const envSessionToken = (password: string, secret: string) => sha256hex(`${password}:${secret}`);
+
+/** Вход: при верном пароле — значение сессионной cookie, иначе null. */
+export async function login(input: string): Promise<string | null> {
+  if (!input) return null;
+  const hash = passwordHash();
+  const key = await pbkdf2hex(input, hash.salt, hash.iterations);
+  if (timingSafeEqualHex(await sha256hex(key), hash.check)) return key;
+  const password = envPassword();
+  // safeEqual хеширует оба значения и сверяет дайджесты постоянного времени: сравнение
+  // не зависит ни от содержимого, ни от длины введённого пароля.
+  if (password === null || !(await safeEqual(input, password))) return null;
+  const secret = getSecret();
+  if (secret === null) {
+    throw new Error("ADMIN_SECRET не задан — без него вход по ADMIN_PASSWORD в production не работает");
+  }
+  return envSessionToken(password, secret);
 }
 
 // Проверка сессионной cookie постоянного времени — используется в middleware.
 export async function verifySession(cookieValue: string | undefined | null): Promise<boolean> {
   if (!cookieValue) return false;
-  return timingSafeEqualHex(cookieValue, await sessionToken());
+  if (timingSafeEqualHex(await sha256hex(cookieValue), passwordHash().check)) return true;
+  const password = envPassword();
+  const secret = getSecret();
+  if (password === null || secret === null) return false;
+  return timingSafeEqualHex(cookieValue, await envSessionToken(password, secret));
 }

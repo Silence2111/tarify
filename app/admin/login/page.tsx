@@ -23,7 +23,9 @@ export default function AdminLoginPage() {
         router.replace("/admin/leads");
         router.refresh();
       } else {
-        setError("Неверный пароль");
+        // Текст — от сервера: «Неверный пароль», «Слишком много попыток…», «Вход не настроен…».
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error ?? `Ошибка сервера (HTTP ${res.status})`);
         setBusy(false);
       }
     } catch {
