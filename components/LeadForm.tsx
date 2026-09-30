@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackGoal } from "@/lib/analytics";
 import { ConsentCheckbox } from "./ConsentCheckbox";
 
 export function LeadForm({
@@ -33,6 +34,7 @@ export function LeadForm({
         body: JSON.stringify({ name, phone, planId, buildingId, addressText, consent }),
       });
       setState(res.ok ? "done" : "error");
+      if (res.ok) trackGoal("lead");
     } catch {
       setState("error");
     }

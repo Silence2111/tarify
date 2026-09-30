@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackGoal } from "@/lib/analytics";
 import { ConsentCheckbox } from "./ConsentCheckbox";
 
 // Заявка «интернет и связь в офис». Провайдеров по зданию подбирают при звонке,
@@ -27,6 +28,7 @@ export function BusinessLeadForm() {
       });
       if (res.ok) {
         setState("done");
+        trackGoal("lead");
         return;
       }
       const json = (await res.json().catch(() => ({}))) as { error?: string };
