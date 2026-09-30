@@ -86,8 +86,8 @@ git push -u origin main
    |---|---|---|
    | `DATABASE_URL` | Neon **pooled** строка | рантайм-подключение |
    | `DIRECT_URL` | Neon **direct** строка | `prisma db push` / миграции |
-   | `ADMIN_PASSWORD` | надёжный пароль | вход в `/admin`. **Обязательна**: без неё админка в проде не откроется |
-   | `ADMIN_SECRET` | случайная строка | подпись сессионной cookie. **Обязательна**, как и пароль |
+   | `ADMIN_PASSWORD_HASH` | (необязательно) хэш из `npm run admin:password` | пароль для `/admin`. Без неё действует хэш пароля владельца из [lib/admin-auth.ts](lib/admin-auth.ts); своя копия сайта — свой хэш (п. 6) |
+   | `ADMIN_PASSWORD`, `ADMIN_SECRET` | (необязательно) пароль и случайная строка | ещё один пароль для `/admin` — открытым текстом; без `ADMIN_SECRET` вход по нему в проде — ошибка |
    | `NEXT_PUBLIC_SITE_URL` | `https://ваш-домен` | canonical, sitemap, robots |
    | `NEXT_PUBLIC_DEMO` | `1`, после реальных данных — `0` | жёлтая плашка «Демо-режим» |
    | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | из Upstash | rate-limit общий для всех инстансов (см. п. 6) |
@@ -129,7 +129,7 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
   освежает `updatedAt`, дубли не создаёт.
 
 Проверка после деплоя: открыть `https://домен/`, найти адрес, оставить заявку, войти в
-`/admin/leads` (пароль из `ADMIN_PASSWORD`), глянуть `/admin/coverage` и `/admin/plans`
+`/admin/leads` (пароль админки), глянуть `/admin/coverage` и `/admin/plans`
 (там видно, какие провайдеры не попадают в поиск и почему).
 
 ---
@@ -160,10 +160,15 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
   Для команды лучше перейти на `prisma migrate` (папка `prisma/migrations`) и в CI гонять
   `prisma migrate deploy`.
 - **Сид затирает данные** — на проде только CLI-импорт, не `db:seed`.
-- **Секреты.** Смените `ADMIN_PASSWORD` и `ADMIN_SECRET` (смена `ADMIN_SECRET` инвалидирует
-  активные сессии админки — это норм). Если хоть одна не задана, админка в проде отвечает
-  ошибкой — так задумано, чтобы прод не поднялся с общеизвестным паролем «admin».
-  Публичную часть сайта это не затрагивает.
+- **Пароль админки.** В коде лежит только хэш пароля владельца ([lib/admin-auth.ts](lib/admin-auth.ts)):
+  пароль по нему не восстановить — это ключ PBKDF2 (600 000 итераций) от случайного пароля, и
+  хранится даже не ключ, а его SHA-256. Сменить пароль: `npm run admin:password` — новый
+  пароль и хэш; хэш — в `ADMIN_PASSWORD_HASH` (или в константу в коде), затем redeploy.
+  Прежние сессии при смене хэша перестают действовать. Разворачиваете свою копию сайта —
+  задайте свой хэш: иначе в неё войдёт владелец этого репозитория. Можно задать и пароль
+  открытым текстом — `ADMIN_PASSWORD` вместе с `ADMIN_SECRET`; без `ADMIN_SECRET` вход по нему
+  в проде отвечает ошибкой, а дефолтного «admin» в проде нет. Публичную часть сайта это не
+  затрагивает.
 - **Middleware** работает на Vercel Edge (использует Web Crypto — совместимо).
 - **Передача заявок в CPA-сеть или CRM.** Адрес приёма и его параметры у каждой сети свои —
   смотрите документацию API в кабинете сети. Впишите адрес в `LEAD_WEBHOOK_URL`, подставив
@@ -205,7 +210,7 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
 
 
 - [ ] Neon: pooled + direct строки получены
-- [ ] Env на Vercel: `DATABASE_URL`, `DIRECT_URL` (без неё сборка остановится на синхронизации схемы), `ADMIN_PASSWORD`, `ADMIN_SECRET`, `NEXT_PUBLIC_SITE_URL`
+- [ ] Env на Vercel: `DATABASE_URL`, `DIRECT_URL` (без неё сборка остановится на синхронизации схемы), `NEXT_PUBLIC_SITE_URL`; для своей копии сайта — свой `ADMIN_PASSWORD_HASH`
 - [ ] `prisma db push` применён к Neon
 - [ ] Тарифы залиты в `/admin/plans`, покрытие — CSV-импортом (не сидом)
 - [ ] Демо-данные убраны кнопкой в `/admin/launch`, `NEXT_PUBLIC_DEMO=0`

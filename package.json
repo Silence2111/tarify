@@ -10,6 +10,7 @@
     "lint": "next lint",
     "db:local": "node scripts/local-db.mjs",
     "import-coverage": "node scripts/import-coverage.mjs",
+    "admin:password": "tsx scripts/admin-password.ts",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
