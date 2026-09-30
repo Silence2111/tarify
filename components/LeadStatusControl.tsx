@@ -38,22 +38,24 @@ export function LeadStatusControl({ id, status }: { id: string; status: string }
   }
 
   return (
-    <div className="flex flex-wrap gap-1">
-      {STATUSES.map((s) => (
-        <button
-          key={s.value}
-          onClick={() => change(s.value)}
-          disabled={pending}
-          className={`rounded px-2 py-0.5 text-xs font-medium transition ${
-            current === s.value
-              ? s.active
-              : "bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:text-slate-600"
-          } ${pending ? "opacity-60" : ""}`}
-        >
-          {s.label}
-        </button>
-      ))}
-      {error && <span className="text-xs text-red-600">ошибка</span>}
+    <div>
+      <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap">
+        {STATUSES.map((s) => (
+          <button
+            key={s.value}
+            onClick={() => change(s.value)}
+            disabled={pending}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              current === s.value
+                ? s.active
+                : "bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:text-slate-600"
+            } ${pending ? "opacity-60" : ""}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {error && <div className="mt-1 text-xs text-red-600">не сохранилось, попробуйте ещё раз</div>}
     </div>
   );
 }
