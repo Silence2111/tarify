@@ -1,4 +1,7 @@
 import type { MetadataRoute } from "next";
+import { getCatalogPlans, getCatalogRegions } from "@/lib/catalog";
+import { pickRegion } from "@/lib/catalog-filter";
+import { collectionPlans, MIN_INDEXABLE, MOBILE_COLLECTIONS } from "@/lib/collections";
 import { prisma } from "@/lib/db";
 import { siteUrl } from "@/lib/site";
 
@@ -25,6 +28,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
   for (const o of operators) {
     urls.push({ url: `${base}/mobile/${o.slug}`, changeFrequency: "weekly", priority: 0.7 });
+  }
+  // Подборки — только те, что индексируются в регионе по умолчанию (адрес без ?region=).
+  const defaultRegion = pickRegion(undefined, await getCatalogRegions("MOBILE"));
+  const mobilePlans = await getCatalogPlans("MOBILE", { region: defaultRegion });
+  for (const c of MOBILE_COLLECTIONS) {
+    if (collectionPlans(c, mobilePlans).length >= MIN_INDEXABLE) {
+      urls.push({ url: `${base}/mobile/podborka/${c.slug}`, changeFrequency: "weekly", priority: 0.6 });
+    }
   }
   for (const c of cities) {
     urls.push({ url: `${base}/${c.slug}`, changeFrequency: "weekly", priority: 0.8 });

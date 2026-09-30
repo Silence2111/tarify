@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getCatalogPlans } from "@/lib/catalog";
 import { getCityProviders } from "@/lib/coverage";
+import { MobileTeaser } from "@/components/MobileTeaser";
 import { AddressSearch } from "@/components/AddressSearch";
 import { PlanCard } from "@/components/PlanCard";
 import { plural } from "@/lib/format";
@@ -31,17 +31,11 @@ export default async function CityPage({ params }: Props) {
 
   const { city: cityRow, groups } = data;
 
-  const [streets, mobilePlans] = await Promise.all([
-    prisma.street.findMany({
-      where: { cityId: cityRow.id },
-      select: { slug: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    // Мобильная связь: три самых дешёвых тарифа региона города.
-    cityRow.region
-      ? getCatalogPlans("MOBILE", { region: cityRow.region, take: 3 })
-      : Promise.resolve([]),
-  ]);
+  const streets = await prisma.street.findMany({
+    where: { cityId: cityRow.id },
+    select: { slug: true, name: true },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <div>
@@ -94,32 +88,7 @@ export default async function CityPage({ params }: Props) {
         ))}
       </div>
 
-      {mobilePlans.length > 0 && cityRow.region && (
-        <section className="mt-10">
-          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold text-slate-800">
-              Мобильная связь: самые доступные тарифы
-            </h2>
-            <Link
-              href={`/mobile?region=${encodeURIComponent(cityRow.region)}`}
-              className="text-sm text-brand hover:underline"
-            >
-              Все тарифы региона →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {mobilePlans.map((p) => (
-              <PlanCard
-                key={p.id}
-                plan={p}
-                providerName={p.providerName}
-                addressText={cityRow.name}
-                eyebrow={p.providerName}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      <MobileTeaser region={cityRow.region} addressText={cityRow.name} />
     </div>
   );
 }

@@ -22,8 +22,9 @@ export function PlanCard({
   const gb = amountText(plan.mobileGb, "ГБ");
   const minutes = amountText(plan.minutes, "мин");
   const sms = amountText(plan.sms, "SMS");
-  // Партнёрская ссылка ведёт на сайт оператора; без неё — заявка с обзвоном.
-  const partnerUrl = plan.url && /^https?:\/\//.test(plan.url) ? plan.url : null;
+  // Партнёрская ссылка ведёт на сайт оператора через /go — там записывается
+  // переход с меткой для постбэка. Без ссылки — заявка с обзвоном.
+  const partnerUrl = plan.url && /^https?:\/\//.test(plan.url) ? `/go/${plan.id}` : null;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">

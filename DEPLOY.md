@@ -91,6 +91,7 @@ git push -u origin main
    | `NEXT_PUBLIC_SITE_URL` | `https://ваш-домен` | canonical, sitemap, robots |
    | `NEXT_PUBLIC_DEMO` | `1`, после реальных данных — `0` | жёлтая плашка «Демо-режим» |
    | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | из Upstash | rate-limit общий для всех инстансов (см. п. 6) |
+   | `POSTBACK_TOKEN` | длинная случайная строка | приём статусов конверсий от CPA-сетей (`/api/postback`); без неё приём выключен |
    | `DADATA_API_KEY` | (необязательно) | автокомплит адресов по всей РФ |
    | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | (необязательно) | аналитика Plausible |
 
@@ -164,6 +165,7 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
 - [ ] Тарифы залиты в `/admin/plans`, покрытие — CSV-импортом (не сидом)
 - [ ] Демо-города удалены, `NEXT_PUBLIC_DEMO=0`
 - [ ] В `/soglasie` и `/privacy` вписаны реквизиты оператора и партнёрских сетей, тексты проверены юристом
+- [ ] `POSTBACK_TOKEN` задан, адрес постбэка указан в кабинете каждой CPA-сети (готовый шаблон — в `/admin/clicks`), в партнёрских ссылках стоит `{subid}`
 - [ ] Вход в `/admin` под прод-паролем работает, заявка создаётся и видна
 - [ ] Домен привязан, `NEXT_PUBLIC_SITE_URL` обновлён, redeploy
 - [ ] (важно) `UPSTASH_REDIS_REST_URL`/`TOKEN` заданы — rate-limit общий для всех инстансов

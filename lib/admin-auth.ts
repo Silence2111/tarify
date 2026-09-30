@@ -51,6 +51,12 @@ export function timingSafeEqualHex(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/** Сравнение секретов произвольной длины за постоянное время (токен постбэка и т. п.). */
+export async function safeEqual(a: string, b: string): Promise<boolean> {
+  const [ha, hb] = await Promise.all([sha256hex(a), sha256hex(b)]);
+  return timingSafeEqualHex(ha, hb);
+}
+
 // Значение сессионной cookie для текущего пароля.
 export async function sessionToken(): Promise<string> {
   return sha256hex(`${getPassword()}:${getSecret()}`);

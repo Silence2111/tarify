@@ -21,6 +21,14 @@ enum ServiceType {
   BUSINESS_ACCOUNT // расчётный счёт для бизнеса (РКО) — раздел «Для бизнеса»
 }
 
+// Статус конверсии из постбэка CPA-сети.
+enum ConversionStatus {
+  PENDING  // сеть получила действие, решения нет
+  HOLD     // подтверждено, ждёт выплаты (холд)
+  APPROVED // оплачено — это деньги
+  REJECTED // отклонено
+}
+
 enum LeadStatus {
   NEW       // заявка пришла
   CALLED    // дозвонились / в работе
@@ -40,6 +48,7 @@ model Provider {
   isActive  Boolean    @default(true)
   plans     Plan[]
   coverage  Coverage[]
+  clicks    Click[]
   createdAt DateTime   @default(now())
 }
 
@@ -69,6 +78,7 @@ model Plan {
   description  String?
   options      PlanOption[]
   leads        Lead[]
+  clicks       Click[]
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
   // Свежесть цены: повторная загрузка прайса обновляет. Каталоги показывают
@@ -137,6 +147,27 @@ model Coverage {
 
   @@unique([buildingId, providerId])
   @@index([providerId])
+}
+
+// Переход по партнёрской ссылке («Оформить»). id уходит в CPA-сеть меткой {subid},
+// постбэк сети возвращает её со статусом конверсии и суммой. Так видно, какие
+// операторы и тарифы приносят деньги без заявки с обзвоном.
+model Click {
+  id         String            @id @default(cuid())
+  plan       Plan?             @relation(fields: [planId], references: [id], onDelete: SetNull)
+  planId     String?
+  provider   Provider          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerId String
+  page       String? // откуда перешли: путь страницы сайта
+  status     ConversionStatus? // null — от сети пока ничего не пришло
+  statusRaw  String? // статус как его прислала сеть — на случай незнакомого слова
+  payoutRub  Int? // сумма из постбэка, ₽
+  network    String?
+  statusAt   DateTime?
+  createdAt  DateTime          @default(now())
+
+  @@index([providerId, createdAt])
+  @@index([createdAt])
 }
 
 // Воронка денег: заявка на подключение.
