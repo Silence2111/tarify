@@ -8,9 +8,9 @@
 1. Создать БД на Neon → получить две строки подключения (pooled + direct).
 2. Запушить репозиторий на GitHub.
 3. Импортировать репо в Vercel, прописать env-переменные.
-4. Применить схему к Neon (`prisma db push`) и залить покрытие (CLI-импорт).
+4. Применить схему к Neon (`prisma db push`) и залить тарифы и покрытие (CSV-импорт).
 5. Привязать домен — `secure`-cookie и HTTPS включатся сами.
-6. Заменить in-memory rate-limit на Upstash Redis (важно для serverless).
+6. Подключить Upstash Redis для rate-limit — код уже умеет, нужны две переменные (важно для serverless).
 
 ---
 
@@ -29,10 +29,10 @@
    postgresql://user:pass@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
    ```
 
-### Рекомендуется: directUrl в схеме
+### directUrl в схеме (уже настроено)
 
-Чтобы миграции шли по прямому подключению, а рантайм — по пулу, добавьте в
-[prisma/schema.prisma](prisma/schema.prisma) в блок `datasource db`:
+Миграции идут по прямому подключению, рантайм — по пулу. В
+[prisma/schema.prisma](prisma/schema.prisma) это уже прописано:
 
 ```prisma
 datasource db {
@@ -42,6 +42,8 @@ datasource db {
 }
 ```
 
+Поэтому `DIRECT_URL` нужна при `prisma db push`: без неё команда падает с
+`Environment variable not found: DIRECT_URL`. Самому приложению в рантайме она не нужна.
 Локально (embedded-postgres) просто выставьте `DIRECT_URL` равным `DATABASE_URL` —
 пул там не используется.
 
@@ -76,11 +78,14 @@ git push -u origin main
    | Переменная | Значение | Зачем |
    |---|---|---|
    | `DATABASE_URL` | Neon **pooled** строка | рантайм-подключение |
-   | `DIRECT_URL` | Neon **direct** строка | миграции (если добавили directUrl) |
-   | `ADMIN_PASSWORD` | надёжный пароль | вход в `/admin` |
-   | `ADMIN_SECRET` | случайная строка | подпись сессионной cookie |
+   | `DIRECT_URL` | Neon **direct** строка | `prisma db push` / миграции |
+   | `ADMIN_PASSWORD` | надёжный пароль | вход в `/admin`. **Обязательна**: без неё админка в проде не откроется |
+   | `ADMIN_SECRET` | случайная строка | подпись сессионной cookie. **Обязательна**, как и пароль |
    | `NEXT_PUBLIC_SITE_URL` | `https://ваш-домен` | canonical, sitemap, robots |
+   | `NEXT_PUBLIC_DEMO` | `1`, после реальных данных — `0` | жёлтая плашка «Демо-режим» |
+   | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | из Upstash | rate-limit общий для всех инстансов (см. п. 6) |
    | `DADATA_API_KEY` | (необязательно) | автокомплит адресов по всей РФ |
+   | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | (необязательно) | аналитика Plausible |
 
 4. **Deploy**. `NODE_ENV=production` Vercel выставит сам → `secure`-cookie активируется.
 
@@ -97,8 +102,9 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
 
 Наполнение:
 
-- ⚠️ **НЕ запускайте `npm run db:seed` на проде** — сид делает `deleteMany` и затирает все данные. Он только для локалки/демо.
-- Реальное покрытие заливайте CLI-импортом против прод-домена:
+- ⚠️ **НЕ запускайте `npm run db:seed` на проде** — сид делает `deleteMany` и затирает все данные, включая заявки. Он только для локалки/демо.
+- Тарифы заливайте в `/admin/plans` — CSV-прайс по каждому провайдеру (формат — [data/PLANS.md](data/PLANS.md)).
+- Реальное покрытие заливайте CLI-импортом против прод-домена (или файлом в `/admin/coverage`):
   ```bash
   ADMIN_PASSWORD=<прод-пароль> SITE_URL=https://ваш-домен \
     npm run import-coverage -- feeds/rostelecom.csv rostelecom-feed
@@ -107,7 +113,8 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
   освежает `updatedAt`, дубли не создаёт.
 
 Проверка после деплоя: открыть `https://домен/`, найти адрес, оставить заявку, войти в
-`/admin/leads` (пароль из `ADMIN_PASSWORD`), глянуть `/admin/coverage`.
+`/admin/leads` (пароль из `ADMIN_PASSWORD`), глянуть `/admin/coverage` и `/admin/plans`
+(там видно, какие провайдеры не попадают в поиск и почему).
 
 ---
 
@@ -122,10 +129,11 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
 
 ## 6. Важные нюансы прод-окружения
 
-- **Rate-limit на serverless.** Текущий лимитер in-memory ([lib/rate-limit.ts](lib/rate-limit.ts)) —
-  на Vercel каждый инстанс свой, поэтому лимит фактически не работает между инстансами.
-  Для реальной защиты подключите **Upstash Redis** (есть интеграция в Vercel Marketplace) и
-  замените `rateLimit()` на счётчик в Redis. До этого rate-limit спасает только на одном инстансе.
+- **Rate-limit на serverless.** Лимитер ([lib/rate-limit.ts](lib/rate-limit.ts)) уже умеет
+  считать в **Upstash Redis** — достаточно задать `UPSTASH_REDIS_REST_URL` и
+  `UPSTASH_REDIS_REST_TOKEN` (есть интеграция в Vercel Marketplace). Без них он in-memory:
+  на Vercel у каждого инстанса свой счётчик, и лимит между инстансами фактически не работает.
+  Если Redis недоступен, лимитер тихо откатывается на in-memory, эндпоинты не падают.
 - **Prisma + serverless коннекты.** Обязательно используйте **pooled** строку Neon в `DATABASE_URL`,
   иначе можно упереться в лимит подключений. Миграции — по `DIRECT_URL`.
 - **Миграции.** Сейчас используется `prisma db push` (без истории миграций) — ок для MVP.
@@ -133,7 +141,9 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
   `prisma migrate deploy`.
 - **Сид затирает данные** — на проде только CLI-импорт, не `db:seed`.
 - **Секреты.** Смените `ADMIN_PASSWORD` и `ADMIN_SECRET` (смена `ADMIN_SECRET` инвалидирует
-  активные сессии админки — это норм).
+  активные сессии админки — это норм). Если хоть одна не задана, админка в проде отвечает
+  ошибкой — так задумано, чтобы прод не поднялся с общеизвестным паролем «admin».
+  Публичную часть сайта это не затрагивает.
 - **Middleware** работает на Vercel Edge (использует Web Crypto — совместимо).
 
 ---
@@ -141,11 +151,11 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
 ## 7. Чек-лист перед продом
 
 - [ ] Neon: pooled + direct строки получены
-- [ ] (рекоменд.) `directUrl` добавлен в schema, `DIRECT_URL` в env
-- [ ] Env на Vercel: `DATABASE_URL`, `ADMIN_PASSWORD`, `ADMIN_SECRET`, `NEXT_PUBLIC_SITE_URL`
+- [ ] Env на Vercel: `DATABASE_URL`, `DIRECT_URL`, `ADMIN_PASSWORD`, `ADMIN_SECRET`, `NEXT_PUBLIC_SITE_URL`
 - [ ] `prisma db push` применён к Neon
-- [ ] Покрытие залито CLI-импортом (не сидом)
-- [ ] Зашёл в `/admin` под прод-паролем, заявка создаётся и видна
+- [ ] Тарифы залиты в `/admin/plans`, покрытие — CSV-импортом (не сидом)
+- [ ] Демо-города удалены, `NEXT_PUBLIC_DEMO=0`
+- [ ] Вход в `/admin` под прод-паролем работает, заявка создаётся и видна
 - [ ] Домен привязан, `NEXT_PUBLIC_SITE_URL` обновлён, redeploy
-- [ ] (важно) rate-limit переведён на Upstash Redis
+- [ ] (важно) `UPSTASH_REDIS_REST_URL`/`TOKEN` заданы — rate-limit общий для всех инстансов
 - [ ] `robots.txt` и `sitemap.xml` отдаются с боевого домена

@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { formatRub, plural } from "@/lib/format";
+import { AdminNav } from "@/components/AdminNav";
 import { LeadStatusControl } from "@/components/LeadStatusControl";
-import { LogoutButton } from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -39,15 +38,7 @@ export default async function LeadsPage() {
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-sm text-slate-500">
-        <span>
-          Заявки /{" "}
-          <Link href="/admin/coverage" className="hover:text-brand">
-            Покрытие
-          </Link>
-        </span>
-        <LogoutButton />
-      </div>
+      <AdminNav current="/admin/leads" className="mb-1" />
       <h1 className="text-2xl font-bold text-slate-900">Заявки</h1>
       <p className="mt-1 text-sm text-slate-500">
         Воронка обработки. За подтверждённые подключения платит провайдер.

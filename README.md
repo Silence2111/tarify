@@ -14,34 +14,40 @@
 | Подбор по покрытию | [lib/coverage.ts](lib/coverage.ts) | Главный запрос: какие провайдеры доступны по адресу |
 | Сравнение + фильтры | [components/ResultsList.tsx](components/ResultsList.tsx) | Фильтр по цене/скорости/ТВ, сортировка |
 | Заявка | [components/LeadForm.tsx](components/LeadForm.tsx) → [app/api/leads/route.ts](app/api/leads/route.ts) | Захват лида |
-| Гео-SEO | [app/[city]/page.tsx](app/[city]/page.tsx) | Страница под город — органический трафик |
-| Заявки (админка) | [app/admin/leads/page.tsx](app/admin/leads/page.tsx) | Воронка, статусы, аппрув, выручка по `payoutRub` |
-| Покрытие (админка) | [app/admin/coverage/page.tsx](app/admin/coverage/page.tsx) + [lib/coverage-import.ts](lib/coverage-import.ts) | Статистика матрицы дом×провайдер + импорт CSV-фидов |
+| Гео-SEO | [app/[city]/page.tsx](app/[city]/page.tsx), [app/[city]/[street]/page.tsx](app/[city]/[street]/page.tsx), [app/sitemap.ts](app/sitemap.ts) | Страницы под город и улицу — органический трафик |
+| Заявки (админка) | [app/admin/leads/page.tsx](app/admin/leads/page.tsx) | Воронка, статусы, аппрув, выручка по `payoutRub`, выгрузка CSV для CPA-сети |
+| Покрытие (админка) | [app/admin/coverage/page.tsx](app/admin/coverage/page.tsx) + [lib/coverage-import.ts](lib/coverage-import.ts) | Статистика матрицы дом×провайдер + импорт CSV-фидов ([data/COVERAGE.md](data/COVERAGE.md)) |
+| Тарифы (админка) | [app/admin/plans/page.tsx](app/admin/plans/page.tsx) + [lib/plans-import.ts](lib/plans-import.ts) | Тарифы провайдеров, кто не виден в поиске и почему, импорт прайса CSV ([data/PLANS.md](data/PLANS.md)) |
 
-Маршруты: `/` · `/[city]` (гео-SEO) · `/[city]/search?street=&house=` (результаты) · `/admin/leads`.
+Маршруты: `/` · `/[city]` и `/[city]/[street]` (гео-SEO) · `/[city]/search?street=&house=` (результаты) · `/privacy` · админка под паролем: `/admin/leads`, `/admin/coverage`, `/admin/plans` (вход — `/admin/login`).
+
+Провайдер попадает в выдачу, только если у него есть **покрытие** по адресу и хотя бы один **активный тариф** — это две разные загрузки в админке.
 
 ## Запуск
 
-> ⚠️ На текущей машине **не установлены Node.js и PostgreSQL** — без них приложение не запустится. См. раздел «Установка окружения» ниже.
+Нужен Node.js 20+ (установка — ниже).
 
 > ℹ️ Если в окружении выставлен `NODE_ENV=production`, npm пропускает devDependencies
 > (tailwindcss, postcss, tsx) — сборка упадёт с `Cannot find module 'tailwindcss'`.
 > Тогда ставьте с `npm install --include=dev`. Скрипт `dev` уже форсит `NODE_ENV=development`.
 
-**Вариант A — локальный Postgres без установки (быстрее всего).** Нативный arm64-бинарник из `embedded-postgres`, данные в `./.pgdata`:
+**Вариант A — локальный Postgres без установки (быстрее всего).** Бинарник из `embedded-postgres`, данные в `./.pgdata`:
 
 ```bash
-npm install --include=dev        # из-за NODE_ENV=production в окружении нужен --include=dev
+cp .env.example .env             # DATABASE_URL и DIRECT_URL — локальная база:
+                                 # postgresql://postgres:postgres@localhost:5433/tarify
+npm install --include=dev        # после .env: Prisma-клиент запомнит, откуда его читать
 
 npm run db:local                 # поднимает локальный Postgres на :5433, держать в отдельном терминале
-# .env уже указывает на postgresql://postgres:postgres@localhost:5433/tarify
-
 npm run db:push                  # создать таблицы
-npm run db:seed                  # залить Казань: 5 провайдеров, улицы, покрытие
+npm run db:seed                  # демо: 3 города, 9 провайдеров, 14 тарифов, покрытие
 npm run dev                      # http://localhost:3000
 ```
 
-**Вариант B — внешний Postgres (Neon/Supabase).** Скопировать `.env.example` → `.env`, вписать свою `DATABASE_URL`, затем `npm run db:push && npm run db:seed && npm run dev`.
+> Если `db:seed` пишет `Environment variable not found: DATABASE_URL` — `.env` появился уже после
+> `npm install`. Выполните `npx prisma generate` и повторите.
+
+**Вариант B — внешний Postgres (Neon/Supabase).** Скопировать `.env.example` → `.env`, вписать свои `DATABASE_URL` и `DIRECT_URL`, затем `npm run db:push && npm run db:seed && npm run dev`.
 
 Полезное: `npm run db:studio` — визуальный редактор БД; `npm run db:reset` — пересоздать и пересеять.
 
@@ -52,40 +58,47 @@ ADMIN_PASSWORD=secret SITE_URL=http://localhost:3000 \
   npm run import-coverage -- data/coverage-sample.csv rostelecom-feed
 ```
 
-**Прод-харднинг** (готово): сессионная cookie админки `secure` под HTTPS (в проде); rate-limit на создание заявок (5/мин на IP) и вход в админку (10/5мин); у записей покрытия есть `source` и `updatedAt` — повторный импорт освежает актуальность, в `/admin/coverage` видны источники и свежесть. Перед деплоем: сменить `ADMIN_PASSWORD`/`ADMIN_SECRET`, выставить `NEXT_PUBLIC_SITE_URL`; для нескольких инстансов заменить in-memory rate-limit на Redis.
+Тарифы грузятся в `/admin/plans` (формат — [data/PLANS.md](data/PLANS.md), шаблон — [data/plans-template.csv](data/plans-template.csv)).
+
+**Прод-харднинг** (готово): сессионная cookie админки `secure` под HTTPS (в проде); пароль и сравнение cookie — постоянного времени; в проде без `ADMIN_PASSWORD`/`ADMIN_SECRET` админка не откроется (fail-fast вместо дефолтного «admin»); rate-limit на создание заявок (5/мин на IP) и вход в админку (10/5мин) — in-memory или через Upstash Redis, если заданы `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` (нужно на Vercel: инстансов несколько); у записей покрытия есть `source` и `updatedAt` — повторный импорт освежает актуальность, в `/admin/coverage` видны источники и свежесть. Перед деплоем: сменить `ADMIN_PASSWORD`/`ADMIN_SECRET`, выставить `NEXT_PUBLIC_SITE_URL`. Подробно — [DEPLOY.md](DEPLOY.md).
 
 ### Демо-сценарий
 1. На главной выбрать «Казань», улицу (например, «Баумана»), дом «3» → **Проверить**.
 2. Появятся провайдеры этого дома с тарифами; отфильтровать по цене/скорости.
 3. Нажать **Подключить**, оставить имя+телефон.
-4. Открыть `/admin/leads` — заявка там.
+4. Открыть `/admin/leads` (пароль — `ADMIN_PASSWORD` из `.env`) — заявка там.
 
 ## Установка окружения (macOS, без Homebrew)
 
 Нужны Node.js 20+ и доступ к PostgreSQL.
 
 - **Node.js**: скачать официальный установщик с https://nodejs.org (LTS, .pkg для macOS) — это самый простой путь без Homebrew. После установки `node -v` должен работать.
-- **PostgreSQL**: для локалки не обязателен — быстрее завести бесплатную базу на [Neon](https://neon.tech) или [Supabase](https://supabase.com) и вставить строку подключения в `.env`. Если нужен локальный — установить [Postgres.app](https://postgresapp.com).
+- **PostgreSQL**: для локалки не обязателен — хватит варианта A выше или бесплатной базы на [Neon](https://neon.tech) / [Supabase](https://supabase.com) (строку подключения — в `.env`). Если нужен постоянный локальный — [Postgres.app](https://postgresapp.com).
 
 ## Дорожная карта (после MVP)
 
-- **Покрытие по адресам** — главный барьер: партнёрские фиды топ-провайдеров + DaData API для адресного слоя (ФИАС/ГАР). Сейчас покрытие — демо-сид.
-- **Колл-центр / статусы заявок** — обработка лида определяет аппрув, а значит выручку. Добавить смену статусов и экспорт в CPA-сеть.
-- **Интеграция с CPA-сетью** (Pampadu/Admitad) — выплаты без прямых договоров.
+- **Покрытие по адресам** — главный барьер: партнёрские фиды топ-провайдеров + DaData API для адресного слоя (ФИАС/ГАР). Сейчас покрытие — демо-сид; как собирать реальное — [data/COVERAGE.md](data/COVERAGE.md).
+- **Реальные тарифы** — импорт прайса готов (`/admin/plans`); осталось заменить демо-тарифы реальными.
+- **Колл-центр** — обработка лида определяет аппрув, а значит выручку. Статусы заявок и CSV-выгрузка для сверки уже есть; дальше — скорость и качество обзвона.
+- **Интеграция с CPA-сетью** (Pampadu/Admitad) — выплаты без прямых договоров; сейчас сверка через CSV-выгрузку.
 - **Масштаб гео-страниц** под низкочастотные запросы «провайдеры по адресу» — основной канал органики.
+- **Витрина мобильных SIM/eSIM** — не требует покрытия, быстрый старт с офферами по всей РФ (см. `Тарифы_первые_офферы.docx`).
 
-Исследование рынка и юнит-экономики — в [research/](research/) (два Word-отчёта + скрипты-генераторы).
+Исследование рынка и юнит-экономики — в [research/](research/) (два Word-отчёта + скрипты-генераторы); план развития и первые офферы — Word-файлы в корне.
 
-## Тесты появились 11.08.2026
+## Тесты
 
-Тестов не было вовсе, при том что через выдачу провайдеров идут деньги:
-заявка на провайдера, которого в доме нет, не превращается в подключение,
-а комиссию платят только за подтверждённое.
+    npm test
 
-Группировка покрытия вынесена в чистую функцию `groupByProvider` и покрыта:
-один провайдер на тридцати домах улицы показывается один раз, отключённый
-и оставшийся без активных тарифов в выдачу не идут. Заодно исправлено:
-технология подключения бралась от первого попавшегося дома, и если у него
-пометки не было, «оптика» соседнего дома терялась — теперь подбирается.
+Тесты появились 11.08.2026. Через выдачу провайдеров идут деньги: заявка на провайдера,
+которого в доме нет, не превращается в подключение, а комиссию платят только за
+подтверждённое. Покрыто:
 
-    npm test    # 12 проверок
+- **группировка покрытия** (`groupByProvider`, в поиске и на страницах улиц): один провайдер
+  на тридцати домах показывается один раз, отключённый и оставшийся без активных тарифов
+  в выдачу не идут, пометка «оптика» не теряется, если у первого дома улицы её нет;
+- **вход в админку**: в проде без пароля/секрета — ошибка, а не вход под «admin»;
+  сравнение постоянного времени;
+- **импорт тарифов**: разбор строк и ошибок, «прайс целиком» (пропавшие тарифы скрываются),
+  при ошибке в файле в БД не пишется ничего, пустая ставка не обнуляет существующую;
+- **CSV-парсер**: кавычки, BOM и «;» из русского Excel.

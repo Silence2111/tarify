@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { plural } from "@/lib/format";
+import { AdminNav } from "@/components/AdminNav";
 import { CoverageImport } from "@/components/CoverageImport";
-import { LogoutButton } from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -25,15 +24,7 @@ export default async function CoveragePage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between text-sm text-slate-500">
-        <span>
-          <Link href="/admin/leads" className="hover:text-brand">
-            Заявки
-          </Link>{" "}
-          / Покрытие
-        </span>
-        <LogoutButton />
-      </div>
+      <AdminNav current="/admin/coverage" />
 
       <h1 className="text-2xl font-bold text-slate-900">Покрытие</h1>
       <p className="mt-1 text-sm text-slate-500">
