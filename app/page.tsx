@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { AddressSearch } from "@/components/AddressSearch";
 import { plural } from "@/lib/format";
+import { HOME_PLAN_TYPES } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,11 @@ export default async function HomePage() {
     orderBy: { name: "asc" },
     select: { id: true, slug: true, name: true },
   });
+  // Счётчики — про интернет по адресу: банки и SIM-тарифы сюда не входят.
+  const homePlans = { isActive: true, type: { in: [...HOME_PLAN_TYPES] } };
   const [providerCount, planCount, buildingCount] = await Promise.all([
-    prisma.provider.count({ where: { isActive: true } }),
-    prisma.plan.count({ where: { isActive: true } }),
+    prisma.provider.count({ where: { isActive: true, plans: { some: homePlans } } }),
+    prisma.plan.count({ where: homePlans }),
     prisma.building.count(),
   ]);
 
@@ -74,6 +77,28 @@ export default async function HomePage() {
           <Step n="2" title="Сравниваете тарифы" text="Только провайдеры, доступные в вашем доме. Фильтры по цене, скорости, ТВ." />
           <Step n="3" title="Оставляете заявку" text="Перезвоним и поможем подключить в удобную дату." />
         </div>
+      </section>
+
+      {/* Другие каталоги */}
+      <section className="mt-10 grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/mobile"
+          className="rounded-xl border border-slate-200 bg-white p-5 hover:border-brand"
+        >
+          <div className="font-semibold text-slate-800">Мобильная связь</div>
+          <div className="mt-1 text-sm text-slate-500">
+            Тарифы операторов с ценами вашего региона: гигабайты, минуты, eSIM, перенос номера.
+          </div>
+        </Link>
+        <Link
+          href="/business"
+          className="rounded-xl border border-slate-200 bg-white p-5 hover:border-brand"
+        >
+          <div className="font-semibold text-slate-800">Для бизнеса</div>
+          <div className="mt-1 text-sm text-slate-500">
+            Интернет в офис и расчётные счета: сравнение тарифов и подключение.
+          </div>
+        </Link>
       </section>
 
       {/* Почему бесплатно */}

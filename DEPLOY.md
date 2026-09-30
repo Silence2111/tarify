@@ -44,6 +44,13 @@ datasource db {
 
 Поэтому `DIRECT_URL` нужна при `prisma db push`: без неё команда падает с
 `Environment variable not found: DIRECT_URL`. Самому приложению в рантайме она не нужна.
+
+**Схема применяется сама при каждой сборке на Vercel.** `npm run build` сначала запускает
+[scripts/db-sync.mjs](scripts/db-sync.mjs): при `VERCEL=1` он делает `prisma db push`, и новые
+колонки появляются в базе раньше, чем их начнёт читать новый код. Если изменение схемы
+теряло бы данные, `db push` откажется, сборка упадёт — и на сайте останется прошлая версия.
+Если в Vercel не задана `DIRECT_URL`, сборка тоже упадёт на этом шаге — добавьте переменную.
+Превью-сборки веток делают то же самое с той базой, что указана для Preview.
 Локально (embedded-postgres) просто выставьте `DIRECT_URL` равным `DATABASE_URL` —
 пул там не используется.
 
@@ -103,7 +110,8 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
 Наполнение:
 
 - ⚠️ **НЕ запускайте `npm run db:seed` на проде** — сид делает `deleteMany` и затирает все данные, включая заявки. Он только для локалки/демо.
-- Тарифы заливайте в `/admin/plans` — CSV-прайс по каждому провайдеру (формат — [data/PLANS.md](data/PLANS.md)).
+- Тарифы заливайте в `/admin/plans` — CSV-прайс по каждому провайдеру: домашний интернет,
+  мобильная связь по регионам, счета для бизнеса (формат и шаблоны — [data/PLANS.md](data/PLANS.md)).
 - Реальное покрытие заливайте CLI-импортом против прод-домена (или файлом в `/admin/coverage`):
   ```bash
   ADMIN_PASSWORD=<прод-пароль> SITE_URL=https://ваш-домен \
@@ -151,10 +159,11 @@ DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require" npx prisma db pu
 ## 7. Чек-лист перед продом
 
 - [ ] Neon: pooled + direct строки получены
-- [ ] Env на Vercel: `DATABASE_URL`, `DIRECT_URL`, `ADMIN_PASSWORD`, `ADMIN_SECRET`, `NEXT_PUBLIC_SITE_URL`
+- [ ] Env на Vercel: `DATABASE_URL`, `DIRECT_URL` (без неё сборка остановится на синхронизации схемы), `ADMIN_PASSWORD`, `ADMIN_SECRET`, `NEXT_PUBLIC_SITE_URL`
 - [ ] `prisma db push` применён к Neon
 - [ ] Тарифы залиты в `/admin/plans`, покрытие — CSV-импортом (не сидом)
 - [ ] Демо-города удалены, `NEXT_PUBLIC_DEMO=0`
+- [ ] В `/soglasie` и `/privacy` вписаны реквизиты оператора и партнёрских сетей, тексты проверены юристом
 - [ ] Вход в `/admin` под прод-паролем работает, заявка создаётся и видна
 - [ ] Домен привязан, `NEXT_PUBLIC_SITE_URL` обновлён, redeploy
 - [ ] (важно) `UPSTASH_REDIS_REST_URL`/`TOKEN` заданы — rate-limit общий для всех инстансов

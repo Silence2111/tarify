@@ -1,27 +1,29 @@
 import { parseCsv } from "@/lib/csv";
 import { prisma } from "@/lib/db";
-import type { PlanView } from "@/lib/types";
+import { UNLIMITED, type PlanView } from "@/lib/types";
 
 // Импорт тарифов из CSV — прайс провайдеров: что в файле, то и на сайте.
 // Одна строка — один тариф. Обязательные колонки: provider, plan, price.
-// Необязательные: provider_name, payout, price_first, speed, tv, mobile, type,
-// description, options. Формат — data/PLANS.md.
+// Необязательные: provider_name, payout, price_first, speed, tv, gb (синоним
+// mobile), minutes, sms, esim, region, url, erid, type, description, options.
+// Формат — data/PLANS.md.
 //
-// Для каждого провайдера из файла:
+// Прайс привязан к паре «провайдер + регион»: мобильные тарифы в каждом регионе
+// стоят по-своему, и прайс Москвы не должен трогать тарифы Казани. Для каждой
+// такой пары из файла:
 //  - тариф узнаётся по названию: есть — обновляется, нет — создаётся;
-//  - его тарифы, которых в файле нет, скрываются (isActive = false), а не
+//  - её тарифы, которых в файле нет, скрываются (isActive = false), а не
 //    удаляются: на них ссылаются заявки;
-//  - заполненные provider_name и payout обновляют карточку провайдера, пустые
-//    не трогают её — пустая ячейка не должна обнулять ставку, по которой
-//    админка считает выручку.
-// Провайдеров, которых в файле нет, импорт не касается.
+// Заполненные provider_name и payout обновляют карточку провайдера, пустые не
+// трогают её — пустая ячейка не должна обнулять ставку, по которой админка
+// считает выручку. Провайдеров и регионов, которых в файле нет, импорт не касается.
 //
 // Сначала проверяется весь файл, и при любой ошибке не пишется ничего:
 // наполовину залитый прайс хуже незалитого — опечатка в одной строке
 // скрыла бы действующий тариф.
 
 type PlanType = PlanView["type"];
-const PLAN_TYPES: readonly PlanType[] = ["INTERNET", "TV", "MOBILE", "BUNDLE"];
+const PLAN_TYPES: readonly PlanType[] = ["INTERNET", "TV", "MOBILE", "BUNDLE", "BUSINESS_ACCOUNT"];
 
 export type PlanRow = {
   line: number;
@@ -37,6 +39,12 @@ export type PlanRow = {
   tvChannels: number | null;
   hasMobile: boolean;
   mobileGb: number | null;
+  minutes: number | null;
+  sms: number | null;
+  esim: boolean;
+  region: string | null;
+  url: string | null;
+  erid: string | null;
   description: string | null;
   options: { label: string; value: string }[];
 };
@@ -52,6 +60,10 @@ export type PlansImportSummary = {
   errors: ImportError[];
 };
 
+const YES = ["да", "yes", "true", "+"];
+const NO = ["", "нет", "no", "false", "-"];
+const UNLIMITED_WORDS = ["безлимит", "безлимитный", "безлимитные", "unlimited", "∞"];
+
 // Целое число ₽ / Мбит/с / ГБ. «1 200» и «600 ₽» тоже принимаем: так пишут в таблицах.
 function parseNumber(raw: string, column: string): number | null {
   const s = raw.replace(/[\s₽]/g, "");
@@ -60,13 +72,43 @@ function parseNumber(raw: string, column: string): number | null {
   return Number(s);
 }
 
-// tv / mobile: число (каналов / ГБ), «да» — есть без подробностей, пусто или «нет» — нет.
+// Количество с безлимитом (ГБ, минуты, SMS): число или «безлимит».
+function parseAmount(raw: string, column: string): number | null {
+  if (UNLIMITED_WORDS.includes(raw.trim().toLowerCase())) return UNLIMITED;
+  return parseNumber(raw, column);
+}
+
+// tv / gb: число (каналов / ГБ), «безлимит», «да» — есть без подробностей,
+// пусто или «нет» — нет.
 function parseFeature(raw: string, column: string): { has: boolean; amount: number | null } {
   const s = raw.trim().toLowerCase();
-  if (["", "нет", "no", "false", "-"].includes(s)) return { has: false, amount: null };
-  if (["да", "yes", "true", "+"].includes(s)) return { has: true, amount: null };
-  const amount = parseNumber(s, column);
+  if (NO.includes(s)) return { has: false, amount: null };
+  if (YES.includes(s)) return { has: true, amount: null };
+  const amount = parseAmount(s, column);
   return amount ? { has: true, amount } : { has: false, amount: null };
+}
+
+function parseFlag(raw: string, column: string): boolean {
+  const s = raw.trim().toLowerCase();
+  if (NO.includes(s)) return false;
+  if (YES.includes(s)) return true;
+  throw new Error(`${column}: «${raw}» — нужно «да» или «нет»`);
+}
+
+// Только http(s): ссылка уходит в href кнопки «Оформить».
+function parseUrl(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+  let url: URL;
+  try {
+    url = new URL(s);
+  } catch {
+    throw new Error(`url: «${s}» — не похоже на ссылку`);
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error(`url: «${s}» — нужна ссылка http(s)`);
+  }
+  return url.toString();
 }
 
 // «Wi-Fi роутер: в аренду 99 ₽/мес; Статический IP: 150 ₽/мес»
@@ -96,19 +138,32 @@ export function parsePlansCsv(text: string): { rows: PlanRow[]; errors: ImportEr
   }
 
   const header = grid[0].map((h) => h.trim().toLowerCase());
+  const col = (...names: string[]) => {
+    for (const n of names) {
+      const i = header.indexOf(n);
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
   const ci = {
-    provider: header.indexOf("provider"),
-    providerName: header.indexOf("provider_name"),
-    payout: header.indexOf("payout"),
-    plan: header.indexOf("plan"),
-    price: header.indexOf("price"),
-    priceFirst: header.indexOf("price_first"),
-    speed: header.indexOf("speed"),
-    tv: header.indexOf("tv"),
-    mobile: header.indexOf("mobile"),
-    type: header.indexOf("type"),
-    description: header.indexOf("description"),
-    options: header.indexOf("options"),
+    provider: col("provider"),
+    providerName: col("provider_name"),
+    payout: col("payout"),
+    plan: col("plan"),
+    price: col("price"),
+    priceFirst: col("price_first"),
+    speed: col("speed"),
+    tv: col("tv"),
+    gb: col("gb", "mobile"),
+    minutes: col("minutes"),
+    sms: col("sms"),
+    esim: col("esim"),
+    region: col("region"),
+    url: col("url"),
+    erid: col("erid"),
+    type: col("type"),
+    description: col("description"),
+    options: col("options"),
   };
   for (const req of ["provider", "plan", "price"] as const) {
     if (ci[req] < 0) {
@@ -130,14 +185,15 @@ export function parsePlansCsv(text: string): { rows: PlanRow[]; errors: ImportEr
       if (!/^[a-z0-9-]+$/.test(provider)) {
         throw new Error(`provider: «${provider}» — нужен слаг латиницей, например rostelecom`);
       }
+      // 0 — законная цена: бесплатные счета для бизнеса, тарифы без абонплаты.
       const priceMonthly = parseNumber(cell(cells, ci.price), "price");
-      if (!priceMonthly) throw new Error("price: нужна цена в месяц, ₽");
+      if (priceMonthly == null) throw new Error("price: нужна цена в месяц, ₽ (0 — бесплатно)");
       const typeRaw = cell(cells, ci.type).toUpperCase() || "INTERNET";
       if (!PLAN_TYPES.includes(typeRaw as PlanType)) {
         throw new Error(`type: «${typeRaw}» — одно из ${PLAN_TYPES.join(", ")}`);
       }
       const tv = parseFeature(cell(cells, ci.tv), "tv");
-      const mobile = parseFeature(cell(cells, ci.mobile), "mobile");
+      const gb = parseFeature(cell(cells, ci.gb), ci.gb >= 0 ? header[ci.gb] : "gb");
 
       rows.push({
         line,
@@ -151,8 +207,14 @@ export function parsePlansCsv(text: string): { rows: PlanRow[]; errors: ImportEr
         speedMbps: parseNumber(cell(cells, ci.speed), "speed"),
         hasTv: tv.has,
         tvChannels: tv.amount,
-        hasMobile: mobile.has,
-        mobileGb: mobile.amount,
+        hasMobile: gb.has,
+        mobileGb: gb.amount,
+        minutes: parseAmount(cell(cells, ci.minutes), "minutes"),
+        sms: parseAmount(cell(cells, ci.sms), "sms"),
+        esim: parseFlag(cell(cells, ci.esim), "esim"),
+        region: cell(cells, ci.region) || null,
+        url: parseUrl(cell(cells, ci.url)),
+        erid: cell(cells, ci.erid) || null,
         description: cell(cells, ci.description) || null,
         options: parseOptions(cell(cells, ci.options)),
       });
@@ -167,12 +229,13 @@ export function parsePlansCsv(text: string): { rows: PlanRow[]; errors: ImportEr
   const firstPlan = new Map<string, number>();
   const firstValue = new Map<string, { value: string | number; line: number }>();
   for (const row of rows) {
-    const planKey = `${row.provider}\n${row.name}`;
+    const planKey = `${row.provider}\n${row.region ?? ""}\n${row.name}`;
     const planLine = firstPlan.get(planKey);
     if (planLine) {
+      const where = row.region ? ` (${row.region})` : "";
       errors.push({
         line: row.line,
-        message: `тариф «${row.name}» у ${row.provider} уже есть в строке ${planLine}`,
+        message: `тариф «${row.name}» у ${row.provider}${where} уже есть в строке ${planLine}`,
       });
     } else firstPlan.set(planKey, row.line);
 
@@ -209,16 +272,12 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
   };
   if (errors.length > 0) return summary;
 
-  const byProvider = new Map<string, PlanRow[]>();
-  for (const row of rows) {
-    const list = byProvider.get(row.provider);
-    if (list) list.push(row);
-    else byProvider.set(row.provider, [row]);
-  }
-
-  for (const [slug, plans] of byProvider) {
-    const name = plans.find((p) => p.providerName)?.providerName ?? null;
-    const payout = plans.find((p) => p.payout != null)?.payout ?? null;
+  // Провайдеры: создать новых, обновить имя и ставку у существующих.
+  const providerIds = new Map<string, string>();
+  for (const slug of new Set(rows.map((r) => r.provider))) {
+    const own = rows.filter((r) => r.provider === slug);
+    const name = own.find((p) => p.providerName)?.providerName ?? null;
+    const payout = own.find((p) => p.payout != null)?.payout ?? null;
 
     let provider = await prisma.provider.findUnique({ where: { slug }, select: { id: true } });
     if (!provider) {
@@ -233,9 +292,24 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
         data: { ...(name ? { name } : {}), ...(payout != null ? { payoutRub: payout } : {}) },
       });
     }
+    providerIds.set(slug, provider.id);
+  }
+
+  // Прайсы: по паре «провайдер + регион».
+  const scopes = new Map<string, PlanRow[]>();
+  for (const row of rows) {
+    const key = `${row.provider}\n${row.region ?? ""}`;
+    const list = scopes.get(key);
+    if (list) list.push(row);
+    else scopes.set(key, [row]);
+  }
+
+  for (const plans of scopes.values()) {
+    const providerId = providerIds.get(plans[0].provider)!;
+    const region = plans[0].region;
 
     const existing = await prisma.plan.findMany({
-      where: { providerId: provider.id },
+      where: { providerId, region },
       select: { id: true, name: true, isActive: true },
     });
     const byName = new Map(existing.map((p) => [p.name, p]));
@@ -252,6 +326,12 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
         tvChannels: row.tvChannels,
         hasMobile: row.hasMobile,
         mobileGb: row.mobileGb,
+        minutes: row.minutes,
+        sms: row.sms,
+        esim: row.esim,
+        region: row.region,
+        url: row.url,
+        erid: row.erid,
         description: row.description,
         isActive: true,
       };
@@ -265,7 +345,7 @@ export async function importPlansCsv(text: string): Promise<PlansImportSummary> 
         summary.plansUpdated++;
       } else {
         const created = await prisma.plan.create({
-          data: { ...data, providerId: provider.id, options: { create: row.options } },
+          data: { ...data, providerId, options: { create: row.options } },
           select: { id: true },
         });
         listed.add(created.id);

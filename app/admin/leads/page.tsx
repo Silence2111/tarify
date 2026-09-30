@@ -105,7 +105,10 @@ export default async function LeadsPage() {
                   <td className="whitespace-nowrap px-3 py-2 text-slate-500">
                     {l.createdAt.toLocaleString("ru-RU")}
                   </td>
-                  <td className="px-3 py-2">{l.name}</td>
+                  <td className="px-3 py-2">
+                    {l.name}
+                    {l.company && <div className="text-xs text-slate-500">{l.company}</div>}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2">{l.phone}</td>
                   <td className="px-3 py-2 text-slate-600">{l.addressText}</td>
                   <td className="px-3 py-2 text-slate-600">

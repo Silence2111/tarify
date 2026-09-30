@@ -89,6 +89,55 @@ describe("разбор прайса", () => {
     expect(errors).toEqual([{ line: 3, message: "тариф «Тариф» у mts уже есть в строке 2" }]);
   });
 
+  it("мобильный тариф: безлимит, минуты, SMS, eSIM, регион, ссылка и erid", () => {
+    const { rows, errors } = parsePlansCsv(
+      [
+        "provider,plan,price,gb,minutes,sms,esim,region,url,erid,type",
+        "t2,Базовый 30,450,безлимит,500,безлимит,да,Москва,https://t2.ru/?utm=1,2VtzqwXYZ,mobile",
+      ].join("\n"),
+    );
+    expect(errors).toEqual([]);
+    expect(rows[0]).toMatchObject({
+      type: "MOBILE",
+      hasMobile: true,
+      mobileGb: -1,
+      minutes: 500,
+      sms: -1,
+      esim: true,
+      region: "Москва",
+      url: "https://t2.ru/?utm=1",
+      erid: "2VtzqwXYZ",
+    });
+  });
+
+  it("колонка mobile — синоним gb, цена 0 допустима", () => {
+    const { rows, errors } = parsePlansCsv("provider,plan,price,mobile,type\ntbank,Старт,0,,business_account");
+    expect(errors).toEqual([]);
+    expect(rows[0]).toMatchObject({ priceMonthly: 0, type: "BUSINESS_ACCOUNT", hasMobile: false });
+  });
+
+  it("ссылка только http(s), eSIM — только да/нет", () => {
+    const { errors } = parsePlansCsv(
+      [
+        "provider,plan,price,url,esim",
+        "t2,А,450,javascript:alert(1),",
+        "t2,Б,450,не ссылка,",
+        "t2,В,450,,может быть",
+      ].join("\n"),
+    );
+    expect(errors.map((e) => e.line)).toEqual([2, 3, 4]);
+    expect(errors[0].message).toMatch(/http/);
+    expect(errors[1].message).toMatch(/ссылк/);
+    expect(errors[2].message).toMatch(/esim/);
+  });
+
+  it("один тариф в разных регионах — не повтор, в одном регионе — повтор", () => {
+    const text = (r2: string) =>
+      ["provider,plan,price,region", "mts,Базовый 20,450,Москва", `mts,Базовый 20,360,${r2}`].join("\n");
+    expect(parsePlansCsv(text("Татарстан")).errors).toEqual([]);
+    expect(parsePlansCsv(text("Москва")).errors[0].message).toMatch(/Москва.*строке 2/);
+  });
+
   it("разные ставки у одного провайдера — ошибка, одинаковые — нет", () => {
     const same = parsePlansCsv(csv("mts,,1800,А,600,,,,,,,", "mts,,1800,Б,700,,,,,,,"));
     expect(same.errors).toEqual([]);
@@ -163,6 +212,29 @@ describe("загрузка прайса в БД", () => {
       data: { isActive: false },
     });
     expect(summary).toMatchObject({ plansCreated: 1, plansUpdated: 1, plansHidden: 1, providersCreated: 0 });
+  });
+
+  it("прайс одного региона не трогает тарифы другого", async () => {
+    db.provider.findUnique.mockResolvedValue({ id: "mts" });
+    // В базе у МТС тарифы в Москве и в Татарстане; грузим только Москву.
+    db.plan.findMany.mockImplementation(async ({ where }) =>
+      where.region === "Москва"
+        ? [
+            { id: "msk-keep", name: "Базовый 20", isActive: true },
+            { id: "msk-gone", name: "Старый", isActive: true },
+          ]
+        : [{ id: "kzn", name: "Базовый 20", isActive: true }],
+    );
+
+    const summary = await importPlansCsv("provider,plan,price,region,type\nmts,Базовый 20,470,Москва,MOBILE");
+
+    expect(db.plan.findMany).toHaveBeenCalledTimes(1);
+    expect(db.plan.findMany.mock.calls[0][0].where).toEqual({ providerId: "mts", region: "Москва" });
+    expect(db.plan.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["msk-gone"] } },
+      data: { isActive: false },
+    });
+    expect(summary).toMatchObject({ plansUpdated: 1, plansHidden: 1 });
   });
 
   it("пустые provider_name и payout не трогают карточку провайдера", async () => {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { plural } from "@/lib/format";
+import { HOME_PLAN_TYPES } from "@/lib/types";
 import { AdminNav } from "@/components/AdminNav";
 import { CoverageImport } from "@/components/CoverageImport";
 
@@ -12,7 +13,14 @@ export default async function CoveragePage() {
     prisma.street.count(),
     prisma.building.count(),
     prisma.coverage.count(),
+    // Только провайдеры домашнего интернета: банкам и SIM-операторам покрытие не нужно.
     prisma.provider.findMany({
+      where: {
+        OR: [
+          { coverage: { some: {} } },
+          { plans: { some: { type: { in: [...HOME_PLAN_TYPES] } } } },
+        ],
+      },
       orderBy: { name: "asc" },
       include: { _count: { select: { coverage: true } } },
     }),

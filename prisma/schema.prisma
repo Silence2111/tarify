@@ -16,8 +16,9 @@ datasource db {
 enum ServiceType {
   INTERNET
   TV
-  MOBILE
+  MOBILE           // каталог мобильной связи: без покрытия, цены по регионам
   BUNDLE
+  BUSINESS_ACCOUNT // расчётный счёт для бизнеса (РКО) — раздел «Для бизнеса»
 }
 
 enum LeadStatus {
@@ -54,14 +55,28 @@ model Plan {
   hasTv        Boolean      @default(false)
   tvChannels   Int?
   hasMobile    Boolean      @default(false)
-  mobileGb     Int?
+  mobileGb     Int? // ГБ мобильного интернета; -1 — безлимит
+  minutes      Int? // минут в месяц; -1 — безлимит
+  sms          Int? // SMS в месяц; -1 — безлимит
+  esim         Boolean      @default(false)
+  // Регион цены (как City.region). Тарифы мобильной связи в каждом регионе стоят
+  // по-своему; null — цена одна для всей России (и все тарифы домашнего интернета).
+  region       String?
+  // Партнёрская ссылка CPA-сети: кнопка «Оформить» ведёт на сайт оператора вместо
+  // заявки с обзвоном. erid — токен маркировки рекламы от сети (ФЗ «О рекламе»).
+  url          String?
+  erid         String?
   description  String?
   options      PlanOption[]
   leads        Lead[]
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
+  // Свежесть цены: повторная загрузка прайса обновляет. Каталоги показывают
+  // «Цены обновлены …» — у конкурентов цены висят месяцами без даты.
+  updatedAt    DateTime     @default(now()) @updatedAt
 
   @@index([providerId])
+  @@index([type, region])
 }
 
 // Гибкие опции тарифа (роутер в аренду, статический IP, антивирус и т.п.)
@@ -129,6 +144,7 @@ model Lead {
   id          String     @id @default(cuid())
   name        String
   phone       String
+  company     String? // заявка «интернет в офис» из раздела «Для бизнеса»
   addressText String
   building    Building?  @relation(fields: [buildingId], references: [id])
   buildingId  String?

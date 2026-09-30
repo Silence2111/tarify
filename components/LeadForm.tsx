@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ConsentCheckbox } from "./ConsentCheckbox";
 
 export function LeadForm({
   planId,
@@ -85,21 +86,7 @@ export function LeadForm({
           <span className="text-sm text-red-600">Ошибка, попробуйте ещё раз</span>
         )}
       </div>
-      <label className="flex items-start gap-2 text-xs text-slate-500">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-          className="mt-0.5"
-        />
-        <span>
-          Согласен на обработку персональных данных согласно{" "}
-          <a href="/privacy" target="_blank" className="text-brand underline">
-            политике конфиденциальности
-          </a>
-          .
-        </span>
-      </label>
+      <ConsentCheckbox id={`consent-${planId}`} checked={consent} onChange={setConsent} />
     </form>
   );
 }

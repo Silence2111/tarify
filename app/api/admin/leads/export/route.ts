@@ -26,7 +26,8 @@ export async function GET(req: NextRequest) {
   });
 
   const header = [
-    "id", "created_at", "status", "name", "phone", "address", "provider", "plan", "payout_rub",
+    "id", "created_at", "status", "name", "phone", "company", "address", "provider", "plan",
+    "payout_rub",
   ];
   const lines = [header.join(",")];
   for (const l of leads) {
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
         l.status,
         l.name,
         l.phone,
+        l.company ?? "",
         l.addressText,
         l.plan?.provider.name ?? "",
         l.plan?.name ?? "",

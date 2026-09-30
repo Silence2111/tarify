@@ -17,11 +17,14 @@
 | Гео-SEO | [app/[city]/page.tsx](app/[city]/page.tsx), [app/[city]/[street]/page.tsx](app/[city]/[street]/page.tsx), [app/sitemap.ts](app/sitemap.ts) | Страницы под город и улицу — органический трафик |
 | Заявки (админка) | [app/admin/leads/page.tsx](app/admin/leads/page.tsx) | Воронка, статусы, аппрув, выручка по `payoutRub`, выгрузка CSV для CPA-сети |
 | Покрытие (админка) | [app/admin/coverage/page.tsx](app/admin/coverage/page.tsx) + [lib/coverage-import.ts](lib/coverage-import.ts) | Статистика матрицы дом×провайдер + импорт CSV-фидов ([data/COVERAGE.md](data/COVERAGE.md)) |
-| Тарифы (админка) | [app/admin/plans/page.tsx](app/admin/plans/page.tsx) + [lib/plans-import.ts](lib/plans-import.ts) | Тарифы провайдеров, кто не виден в поиске и почему, импорт прайса CSV ([data/PLANS.md](data/PLANS.md)) |
+| Тарифы (админка) | [app/admin/plans/page.tsx](app/admin/plans/page.tsx) + [lib/plans-import.ts](lib/plans-import.ts) | Все тарифы, где провайдер виден на сайте и почему нет, импорт прайса CSV ([data/PLANS.md](data/PLANS.md)) |
+| Мобильная связь | [app/mobile/](app/mobile/) + [components/MobileCatalog.tsx](components/MobileCatalog.tsx) + [lib/catalog.ts](lib/catalog.ts) | Каталог тарифов операторов с ценами по регионам, фильтры (ГБ, минуты, eSIM), «Оформить» по партнёрской ссылке |
+| Для бизнеса | [app/business/page.tsx](app/business/page.tsx) | Заявка «интернет в офис» и каталог расчётных счетов банков |
+| Согласие на ПДн | [app/soglasie/page.tsx](app/soglasie/page.tsx) + [components/ConsentCheckbox.tsx](components/ConsentCheckbox.tsx) | Отдельный документ согласия (требование с 01.09.2025) и галочка во всех формах |
 
-Маршруты: `/` · `/[city]` и `/[city]/[street]` (гео-SEO) · `/[city]/search?street=&house=` (результаты) · `/privacy` · админка под паролем: `/admin/leads`, `/admin/coverage`, `/admin/plans` (вход — `/admin/login`).
+Маршруты: `/` · `/[city]` и `/[city]/[street]` (гео-SEO) · `/[city]/search?street=&house=` (результаты) · `/mobile` и `/mobile/[operator]` (мобильная связь, `?region=`) · `/business` · `/privacy` · `/soglasie` · админка под паролем: `/admin/leads`, `/admin/coverage`, `/admin/plans` (вход — `/admin/login`).
 
-Провайдер попадает в выдачу, только если у него есть **покрытие** по адресу и хотя бы один **активный тариф** — это две разные загрузки в админке.
+В поиск по адресу провайдер попадает, только если у него есть **покрытие** дома и хотя бы один **активный домашний тариф** — это две разные загрузки в админке. Мобильной связи и счетам для бизнеса покрытие не нужно: они живут в своих каталогах.
 
 ## Запуск
 
@@ -40,7 +43,7 @@ npm install --include=dev        # после .env: Prisma-клиент запо
 
 npm run db:local                 # поднимает локальный Postgres на :5433, держать в отдельном терминале
 npm run db:push                  # создать таблицы
-npm run db:seed                  # демо: 3 города, 9 провайдеров, 14 тарифов, покрытие
+npm run db:seed                  # демо: 3 города, интернет с покрытием, мобильная связь, счета
 npm run dev                      # http://localhost:3000
 ```
 
@@ -58,7 +61,9 @@ ADMIN_PASSWORD=secret SITE_URL=http://localhost:3000 \
   npm run import-coverage -- data/coverage-sample.csv rostelecom-feed
 ```
 
-Тарифы грузятся в `/admin/plans` (формат — [data/PLANS.md](data/PLANS.md), шаблон — [data/plans-template.csv](data/plans-template.csv)).
+Тарифы грузятся в `/admin/plans` (формат — [data/PLANS.md](data/PLANS.md); шаблоны для домашнего интернета, мобильной связи и счетов — в [data/](data/)).
+
+**Схема БД на проде** обновляется сама: `npm run build` на Vercel сначала выполняет `prisma db push` ([scripts/db-sync.mjs](scripts/db-sync.mjs)), локально этот шаг пропускается. Нужна переменная `DIRECT_URL` — см. [DEPLOY.md](DEPLOY.md).
 
 **Прод-харднинг** (готово): сессионная cookie админки `secure` под HTTPS (в проде); пароль и сравнение cookie — постоянного времени; в проде без `ADMIN_PASSWORD`/`ADMIN_SECRET` админка не откроется (fail-fast вместо дефолтного «admin»); rate-limit на создание заявок (5/мин на IP) и вход в админку (10/5мин) — in-memory или через Upstash Redis, если заданы `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` (нужно на Vercel: инстансов несколько); у записей покрытия есть `source` и `updatedAt` — повторный импорт освежает актуальность, в `/admin/coverage` видны источники и свежесть. Перед деплоем: сменить `ADMIN_PASSWORD`/`ADMIN_SECRET`, выставить `NEXT_PUBLIC_SITE_URL`. Подробно — [DEPLOY.md](DEPLOY.md).
 
@@ -78,11 +83,11 @@ ADMIN_PASSWORD=secret SITE_URL=http://localhost:3000 \
 ## Дорожная карта (после MVP)
 
 - **Покрытие по адресам** — главный барьер: партнёрские фиды топ-провайдеров + DaData API для адресного слоя (ФИАС/ГАР). Сейчас покрытие — демо-сид; как собирать реальное — [data/COVERAGE.md](data/COVERAGE.md).
-- **Реальные тарифы** — импорт прайса готов (`/admin/plans`); осталось заменить демо-тарифы реальными.
+- **Реальные тарифы** — импорт прайса готов (`/admin/plans`); осталось заменить демо-тарифы реальными, в том числе мобильные (по регионам) и счета для бизнеса, с партнёрскими ссылками.
 - **Колл-центр** — обработка лида определяет аппрув, а значит выручку. Статусы заявок и CSV-выгрузка для сверки уже есть; дальше — скорость и качество обзвона.
 - **Интеграция с CPA-сетью** (Pampadu/Admitad) — выплаты без прямых договоров; сейчас сверка через CSV-выгрузку.
 - **Масштаб гео-страниц** под низкочастотные запросы «провайдеры по адресу» — основной канал органики.
-- **Витрина мобильных SIM/eSIM** — не требует покрытия, быстрый старт с офферами по всей РФ (см. `Тарифы_первые_офферы.docx`).
+- **Постбэк от CPA-сетей** — Pampadu и Admitad умеют сами присылать статус конверсии; нужен приёмный адрес, чтобы статусы заявок обновлялись без ручной сверки.
 
 Исследование рынка и юнит-экономики — в [research/](research/) (два Word-отчёта + скрипты-генераторы); план развития и первые офферы — Word-файлы в корне.
 
@@ -99,6 +104,9 @@ ADMIN_PASSWORD=secret SITE_URL=http://localhost:3000 \
   в выдачу не идут, пометка «оптика» не теряется, если у первого дома улицы её нет;
 - **вход в админку**: в проде без пароля/секрета — ошибка, а не вход под «admin»;
   сравнение постоянного времени;
-- **импорт тарифов**: разбор строк и ошибок, «прайс целиком» (пропавшие тарифы скрываются),
-  при ошибке в файле в БД не пишется ничего, пустая ставка не обнуляет существующую;
+- **импорт тарифов**: разбор строк и ошибок, «прайс целиком» (пропавшие тарифы скрываются)
+  в пределах пары «провайдер + регион», безлимиты, ссылки только http(s), при ошибке в файле
+  в БД не пишется ничего, пустая ставка не обнуляет существующую;
+- **каталог мобильной связи**: безлимит проходит любой фильтр «от N ГБ», сортировка,
+  регион по умолчанию;
 - **CSV-парсер**: кавычки, BOM и «;» из русского Excel.

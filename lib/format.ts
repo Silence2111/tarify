@@ -2,6 +2,11 @@ export function formatRub(value: number): string {
   return new Intl.NumberFormat("ru-RU").format(value) + " ₽";
 }
 
+/** «30 сентября 2026 г.» */
+export function formatDate(d: Date): string {
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+}
+
 const TRANSLIT: Record<string, string> = {
   а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i",
   й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t",

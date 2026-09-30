@@ -20,10 +20,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { name, phone, addressText, planId, buildingId, consent } = (body ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { name, phone, company, addressText, planId, buildingId, consent } = (body ??
+    {}) as Record<string, unknown>;
 
   if (typeof name !== "string" || name.trim().length < 2) {
     return NextResponse.json({ error: "Укажите имя" }, { status: 400 });
@@ -41,6 +39,8 @@ export async function POST(req: NextRequest) {
     data: {
       name: name.trim(),
       phone: typeof phone === "string" ? phone.trim() : "",
+      // Заявка «интернет в офис» из раздела «Для бизнеса».
+      company: typeof company === "string" && company.trim() ? company.trim().slice(0, 200) : null,
       addressText: typeof addressText === "string" ? addressText.trim() : "",
       planId: typeof planId === "string" ? planId : null,
       buildingId: typeof buildingId === "string" ? buildingId : null,

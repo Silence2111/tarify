@@ -1,9 +1,18 @@
 // Плоские, сериализуемые типы для передачи из серверных компонентов в клиентские.
 
+export type PlanType = "INTERNET" | "TV" | "MOBILE" | "BUNDLE" | "BUSINESS_ACCOUNT";
+
+// Тарифы, которые ищут по адресу дома (нужно покрытие). Мобильная связь и счета
+// для бизнеса живут в своих каталогах и в выдачу по адресу не попадают.
+export const HOME_PLAN_TYPES = ["INTERNET", "TV", "BUNDLE"] as const satisfies readonly PlanType[];
+
+// В количествах (ГБ, минуты, SMS) -1 означает безлимит.
+export const UNLIMITED = -1;
+
 export type PlanView = {
   id: string;
   name: string;
-  type: "INTERNET" | "TV" | "MOBILE" | "BUNDLE";
+  type: PlanType;
   speedMbps: number | null;
   priceMonthly: number;
   priceFirst: number | null;
@@ -11,6 +20,12 @@ export type PlanView = {
   tvChannels: number | null;
   hasMobile: boolean;
   mobileGb: number | null;
+  minutes: number | null;
+  sms: number | null;
+  esim: boolean;
+  region: string | null;
+  url: string | null; // партнёрская ссылка: «Оформить» на сайте оператора
+  erid: string | null; // маркировка рекламы
   description: string | null;
   options: { label: string; value: string }[];
 };
@@ -22,3 +37,6 @@ export type ProviderGroup = {
   techNote: string | null;
   plans: PlanView[];
 };
+
+// Тариф в каталоге (мобильная связь, счета для бизнеса): плоский список с оператором.
+export type CatalogPlan = PlanView & { providerName: string; providerSlug: string };

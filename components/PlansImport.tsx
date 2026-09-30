@@ -8,9 +8,13 @@ export function PlansImport() {
       hint={
         <>
           Колонки: <code>provider, plan, price</code> (обязательные) +{" "}
-          <code>provider_name, payout, price_first, speed, tv, mobile, type, description, options</code>.
-          Файл — актуальный прайс: тарифы провайдера, которых в нём нет, скрываются с сайта. При
-          ошибке в любой строке не загружается ничего. Формат — <code>data/PLANS.md</code>.
+          <code>
+            provider_name, payout, price_first, speed, tv, gb, minutes, sms, esim, region, url,
+            erid, type, description, options
+          </code>
+          . Файл — актуальный прайс пары «провайдер + регион»: её тарифы, которых в нём нет,
+          скрываются с сайта. При ошибке в любой строке не загружается ничего. Формат и шаблоны —{" "}
+          <code>data/PLANS.md</code>.
         </>
       }
       stats={[

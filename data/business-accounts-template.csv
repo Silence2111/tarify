@@ -1,0 +1,3 @@
+provider,provider_name,payout,plan,price,type,url,erid,description,options
+tbank,Т-Банк,8000,Старт,0,BUSINESS_ACCOUNT,https://www.tbank.ru/,,,"Платежи юрлицам: первые 3 бесплатно; Снятие наличных: от 3%"
+tochka,Точка,8000,Бизнес,2100,BUSINESS_ACCOUNT,https://tochka.com/,,,"Платежи юрлицам: без ограничений; Переводы физлицам: до 500 000 ₽ без комиссии"

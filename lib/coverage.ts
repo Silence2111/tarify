@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
-import type { PlanView, ProviderGroup } from "@/lib/types";
+import { HOME_PLAN_TYPES, type PlanView, type ProviderGroup } from "@/lib/types";
 
-function toPlanView(p: {
+// Поля каталогов (минуты, регион, ссылка…) необязательны: строкам покрытия
+// из старых данных и тестов их можно не передавать.
+export function toPlanView(p: {
   id: string;
   name: string;
   type: string;
@@ -12,6 +14,12 @@ function toPlanView(p: {
   tvChannels: number | null;
   hasMobile: boolean;
   mobileGb: number | null;
+  minutes?: number | null;
+  sms?: number | null;
+  esim?: boolean;
+  region?: string | null;
+  url?: string | null;
+  erid?: string | null;
   description: string | null;
   options: { label: string; value: string }[];
 }): PlanView {
@@ -26,6 +34,12 @@ function toPlanView(p: {
     tvChannels: p.tvChannels,
     hasMobile: p.hasMobile,
     mobileGb: p.mobileGb,
+    minutes: p.minutes ?? null,
+    sms: p.sms ?? null,
+    esim: p.esim ?? false,
+    region: p.region ?? null,
+    url: p.url ?? null,
+    erid: p.erid ?? null,
     description: p.description,
     options: p.options.map((o) => ({ label: o.label, value: o.value })),
   };
@@ -33,8 +47,10 @@ function toPlanView(p: {
 
 // Единый подзапрос «активные тарифы с опциями, дешёвые сверху» — используется
 // во всех трёх выборках покрытия, чтобы выдача везде была одинаковой.
+// Только домашние услуги: мобильная связь того же провайдера (МТС, Билайн)
+// живёт в своём каталоге и в выдачу по адресу дома не попадает.
 const activePlansQuery = {
-  where: { isActive: true },
+  where: { isActive: true, type: { in: [...HOME_PLAN_TYPES] } },
   include: { options: true },
   orderBy: { priceMonthly: "asc" as const },
 };
