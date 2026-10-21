@@ -100,6 +100,7 @@ git push -u origin main
    | `TELEGRAM_LEADS_CHAT_ID` | (необязательно) id чата оператора | «Новая заявка» без персональных данных — чтобы перезвонить быстрее |
    | `TELEGRAM_CHANNEL_ID` | (необязательно) `@канал` или его id | пост «Изменения цен» после каждой загрузки прайса с изменениями |
    | `OPERATOR_NAME`, `OPERATOR_INN`, `OPERATOR_OGRN`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL` | реквизиты оператора персональных данных | подставляются в `/soglasie` и `/privacy` |
+   | `YANDEX_VERIFICATION`, `GOOGLE_SITE_VERIFICATION` | (необязательно) коды подтверждения из Яндекс Вебмастера и Google Search Console | мета-теги подтверждения прав на сайт; без них — подтверждение через DNS |
    | `PD_RECIPIENTS` | кому передаются заявки: сети и CRM, например `ООО «Пампаду» (Pampadu)` | называются в согласии и политике |
    | `DADATA_API_KEY` | (необязательно) | автокомплит адресов по всей РФ |
    | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | (необязательно) | аналитика Plausible |

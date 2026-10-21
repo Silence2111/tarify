@@ -30,6 +30,12 @@ export const metadata: Metadata = {
       "Сравните тарифы интернет-провайдеров, доступных по вашему адресу. Бесплатно и без наценки.",
     locale: "ru_RU",
   },
+  // Подтверждение прав в Яндекс Вебмастере и Google Search Console — мета-тегом с кодом
+  // из их кабинетов. Пустая переменная — тега нет.
+  verification: {
+    yandex: process.env.YANDEX_VERIFICATION || undefined,
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+  },
   twitter: {
     card: "summary",
     title: "Тарифы — интернет-провайдеры по адресу",

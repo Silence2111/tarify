@@ -30,6 +30,8 @@ export function launchChecks(f: LaunchFacts): LaunchGroup[] {
   const realPlans = f.realPlans.home + f.realPlans.mobile + f.realPlans.business;
   const demoLeft = f.demo.coverage + f.demo.plans;
   const missingOperator = missingOperatorFields(env);
+  const verification = has(env, "YANDEX_VERIFICATION") && has(env, "GOOGLE_SITE_VERIFICATION");
+  const sitemap = `${siteOk ? site : "https://ваш-домен"}/sitemap.xml`;
 
   return [
     {
@@ -195,8 +197,13 @@ export function launchChecks(f: LaunchFacts): LaunchGroup[] {
         },
         {
           title: "Яндекс Вебмастер и Google Search Console",
-          status: "manual",
-          hint: `Добавьте сайт и отправьте карту сайта: ${siteOk ? site : "https://ваш-домен"}/sitemap.xml.`,
+          // Коды заданы — права подтверждены мета-тегом; подтверждение через DNS сайт не
+          // видит, поэтому без кодов пункт — «проверьте сами», а не «нужно сделать».
+          status: verification ? "ok" : "manual",
+          optional: true,
+          hint: verification
+            ? `Коды подтверждения на сайте. Карта сайта для обоих: ${sitemap}.`
+            : `Добавьте сайт, подтвердите права мета-тегом — коды в YANDEX_VERIFICATION и GOOGLE_SITE_VERIFICATION — и отправьте карту сайта: ${sitemap}.`,
         },
       ],
     },

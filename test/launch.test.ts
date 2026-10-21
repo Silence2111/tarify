@@ -98,3 +98,21 @@ describe("реквизиты оператора", () => {
     expect(dataRecipients({})).toBeNull();
   });
 });
+
+describe("Вебмастер и Search Console", () => {
+  const check = (env: Record<string, string>) =>
+    launchChecks({ ...EMPTY, env })
+      .flatMap((g) => g.checks)
+      .find((c) => c.title.startsWith("Яндекс Вебмастер"))!;
+
+  it("оба кода заданы — готово, без кодов — проверить самим", () => {
+    expect(check({ YANDEX_VERIFICATION: "a1", GOOGLE_SITE_VERIFICATION: "b2" }).status).toBe("ok");
+    expect(check({ YANDEX_VERIFICATION: "a1" }).status).toBe("manual");
+    expect(check({}).status).toBe("manual");
+  });
+
+  it("на счётчик «Готово N из M» не влияет", () => {
+    const total = (env: Record<string, string>) => launchProgress(launchChecks({ ...EMPTY, env })).total;
+    expect(total({ YANDEX_VERIFICATION: "a1", GOOGLE_SITE_VERIFICATION: "b2" })).toBe(total({}));
+  });
+});
