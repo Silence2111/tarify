@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { siteUrl } from "@/lib/site";
+import { hasAddressSearch } from "@/lib/home";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Analytics } from "@/components/Analytics";
 
@@ -35,7 +36,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Без городов и тарифов домашнего интернета главная — про мобильную связь (lib/home.ts).
+  const addressSearch = await hasAddressSearch();
   return (
     <html lang="ru">
       <body>
@@ -47,9 +50,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Тарифы<span className="text-brand-light">.ру</span>
             </Link>
             <nav className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
-              <Link href="/" className="hover:text-brand">
-                Интернет по адресу
-              </Link>
+              {addressSearch && (
+                <Link href="/" className="hover:text-brand">
+                  Интернет по адресу
+                </Link>
+              )}
               <Link href="/mobile" className="hover:text-brand">
                 Мобильная связь
               </Link>
