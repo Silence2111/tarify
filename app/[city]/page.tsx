@@ -6,7 +6,9 @@ import { getCityProviders } from "@/lib/coverage";
 import { MobileTeaser } from "@/components/MobileTeaser";
 import { AddressSearch } from "@/components/AddressSearch";
 import { PlanCard } from "@/components/PlanCard";
+import { breadcrumbs, JsonLd } from "@/components/JsonLd";
 import { plural } from "@/lib/format";
+import { inCity } from "@/lib/geo-names";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +21,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getCityProviders(city);
   if (!data) return { title: "Город не найден" };
   return {
-    title: `Интернет-провайдеры в ${data.city.name}`,
-    description: `Тарифы на домашний интернет и ТВ в ${data.city.name}: ${data.groups.length} провайдеров. Сравните и подключите бесплатно.`,
+    title: `Интернет-провайдеры ${inCity(data.city.name)}`,
+    description: `Тарифы на домашний интернет и ТВ ${inCity(data.city.name)}: ${data.groups.length} ${plural(data.groups.length, "провайдер", "провайдера", "провайдеров")}. Сравните и подключите бесплатно.`,
+    alternates: { canonical: `/${data.city.slug}` },
   };
 }
 
@@ -39,6 +42,7 @@ export default async function CityPage({ params }: Props) {
 
   return (
     <div>
+      <JsonLd data={breadcrumbs([{ name: "Главная", path: "/" }, { name: cityRow.name }])} />
       <div className="mb-4 text-sm text-slate-500">
         <Link href="/" className="hover:text-brand">
           Главная
@@ -47,7 +51,7 @@ export default async function CityPage({ params }: Props) {
       </div>
 
       <h1 className="text-2xl font-bold text-slate-900">
-        Интернет-провайдеры в {cityRow.name}
+        Интернет-провайдеры {inCity(cityRow.name)}
       </h1>
       <p className="mt-1 text-slate-500">
         {groups.length} {plural(groups.length, "провайдер", "провайдера", "провайдеров")} с тарифами.

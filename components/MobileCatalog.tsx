@@ -12,6 +12,7 @@ import { formatDate, formatRub, plural } from "@/lib/format";
 import { getPriceChanges } from "@/lib/price-history";
 import { catalogPath, operatorPath } from "@/lib/regions";
 import { CatalogList } from "./CatalogList";
+import { breadcrumbs, JsonLd } from "./JsonLd";
 import { PriceChangeList } from "./PriceChangeList";
 import { RegionSelect } from "./RegionSelect";
 
@@ -77,14 +78,27 @@ export async function MobileCatalog({
       ? collection.title
       : "Тарифы мобильной связи";
 
+  const deep = Boolean(operator || collection || regionPage);
+
   return (
     <div>
+      <JsonLd
+        data={breadcrumbs([
+          { name: "Главная", path: "/" },
+          ...(deep
+            ? [
+                { name: "Мобильная связь", path: operator || collection ? mobileHome : "/mobile" },
+                { name: operator?.name ?? collection?.short ?? region ?? "" },
+              ]
+            : [{ name: "Мобильная связь" }]),
+        ])}
+      />
       <div className="mb-4 text-sm text-slate-500">
         <Link href="/" className="hover:text-brand">
           Главная
         </Link>{" "}
         /{" "}
-        {operator || collection || regionPage ? (
+        {deep ? (
           <>
             <Link href={operator || collection ? mobileHome : "/mobile"} className="hover:text-brand">
               Мобильная связь

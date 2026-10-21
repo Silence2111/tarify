@@ -1,10 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { AddressSearch } from "@/components/AddressSearch";
+import { JsonLd } from "@/components/JsonLd";
 import { plural } from "@/lib/format";
 import { HOME_PLAN_TYPES } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+// Заголовок и описание — из корневого layout; canonical — чтобы адреса с utm-метками
+// не считались отдельными страницами.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const FAQ = [
   {
@@ -46,10 +52,7 @@ export default async function HomePage() {
 
   return (
     <div>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
+      <JsonLd data={faqJsonLd} />
 
       {/* Hero */}
       <section className="rounded-2xl bg-gradient-to-br from-brand to-brand-dark px-6 py-12 text-white sm:px-10 sm:py-14">

@@ -8,12 +8,16 @@ export const dynamic = "force-dynamic";
 
 type Props = { searchParams: Promise<{ region?: string }> };
 
-export const metadata: Metadata = {
-  title: "Тарифы мобильной связи",
-  description:
-    "Сравните тарифы МТС, Билайна, МегаФона, t2 и других операторов в вашем регионе: гигабайты, минуты, цена, eSIM и перенос номера.",
-  alternates: { canonical: "/mobile" },
-};
+// Регион по умолчанию — в заголовке, как и в h1: цены на странице — его.
+export async function generateMetadata(): Promise<Metadata> {
+  const { defaultRegion } = await getMobileRegionContext();
+  return {
+    title: `Тарифы мобильной связи${defaultRegion ? ` — ${defaultRegion}` : ""}`,
+    description:
+      "Сравните тарифы МТС, Билайна, МегаФона, t2 и других операторов в вашем регионе: гигабайты, минуты, цена, eSIM и перенос номера.",
+    alternates: { canonical: "/mobile" },
+  };
+}
 
 export default async function MobilePage({ searchParams }: Props) {
   const [{ region: legacy }, { regions, defaultRegion }] = await Promise.all([
