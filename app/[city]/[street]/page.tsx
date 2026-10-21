@@ -3,21 +3,24 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStreetProviders } from "@/lib/coverage";
 import { PlanCard } from "@/components/PlanCard";
+import { breadcrumbs, JsonLd } from "@/components/JsonLd";
 import { plural } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ city: string; street: string }> };
 
-// Гео-SEO под низкочастотные запросы «провайдеры на улице … в городе …».
+// Гео-SEO под низкочастотные запросы «провайдеры на улице … в городе …». Название улицы
+// — в именительном падеже после двоеточия: склонять названия улиц («на проспекте
+// Победы») правилами нельзя, а «на проспект Победы» — ошибка.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { city, street } = await params;
   const data = await getStreetProviders(city, street);
   if (!data) return { title: "Улица не найдена" };
-  const title = `Интернет-провайдеры на ${data.street.name} (${data.city.name})`;
+  const title = `Интернет-провайдеры: ${data.street.name}, ${data.city.name}`;
   return {
     title,
-    description: `Тарифы на домашний интернет и ТВ на ${data.street.name} в ${data.city.name}: ${data.groups.length} провайдеров. Сравните и подключите бесплатно.`,
+    description: `Тарифы на домашний интернет и ТВ — ${data.street.name}, ${data.city.name}: ${data.groups.length} ${plural(data.groups.length, "провайдер", "провайдера", "провайдеров")}. Сравните и подключите бесплатно.`,
     alternates: { canonical: `/${city}/${street}` },
     openGraph: { title, type: "website" },
   };
@@ -33,7 +36,7 @@ export default async function StreetPage({ params }: Props) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: `Интернет-провайдеры на ${streetRow.name}, ${cityRow.name}`,
+    name: `Интернет-провайдеры: ${streetRow.name}, ${cityRow.name}`,
     numberOfItems: groups.length,
     itemListElement: groups.map((g, i) => ({
       "@type": "ListItem",
@@ -44,9 +47,13 @@ export default async function StreetPage({ params }: Props) {
 
   return (
     <div>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      <JsonLd data={jsonLd} />
+      <JsonLd
+        data={breadcrumbs([
+          { name: "Главная", path: "/" },
+          { name: cityRow.name, path: `/${city}` },
+          { name: streetRow.name },
+        ])}
       />
 
       <div className="mb-4 text-sm text-slate-500">
@@ -61,7 +68,7 @@ export default async function StreetPage({ params }: Props) {
       </div>
 
       <h1 className="text-2xl font-bold text-slate-900">
-        Интернет-провайдеры на {streetRow.name}
+        Интернет-провайдеры: {streetRow.name}
       </h1>
       <p className="mt-1 text-slate-500">
         {cityRow.name}. {groups.length}{" "}
