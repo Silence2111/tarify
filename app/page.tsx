@@ -10,9 +10,12 @@ import { HOME_PLAN_TYPES } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-// Без городов и тарифов домашнего интернета главная — про мобильную связь.
+// Заголовок и описание — из корневого layout, а без городов и тарифов домашнего
+// интернета главная — про мобильную связь, со своими. canonical — чтобы адреса с
+// utm-метками не считались отдельными страницами.
 export async function generateMetadata(): Promise<Metadata> {
-  return (await hasAddressSearch()) ? {} : MOBILE_HOME_METADATA;
+  const own = (await hasAddressSearch()) ? {} : MOBILE_HOME_METADATA;
+  return { ...own, alternates: { canonical: "/" } };
 }
 
 const FAQ: FaqItem[] = [

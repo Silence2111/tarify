@@ -23,7 +23,7 @@ const DESCRIPTION =
   "Сравните тарифы операторов мобильной связи с ценами вашего региона: гигабайты, минуты, eSIM. Подбор тарифа под ваш расход — бесплатно.";
 
 export const MOBILE_HOME_METADATA: Metadata = {
-  title: { absolute: TITLE },
+  title: TITLE,
   description: DESCRIPTION,
   keywords: [
     "тарифы мобильной связи",

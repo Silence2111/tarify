@@ -25,8 +25,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const op = await findMobileOperator(slug);
   if (op) {
+    // Регион по умолчанию — в заголовке, как и в h1: цены на странице — его.
+    const region = pickRegion(undefined, (await getMobileOperatorRegions()).get(op.slug) ?? []);
     return {
-      title: `Тарифы ${op.name}`,
+      title: `Тарифы ${op.name}${region ? ` — ${region}` : ""}`,
       description: `Все тарифы ${op.name} с ценами вашего региона: гигабайты, минуты, eSIM. Сравните и оформите онлайн.`,
       alternates: { canonical: `/mobile/${op.slug}` },
     };

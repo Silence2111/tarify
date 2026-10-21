@@ -10,9 +10,11 @@ import { LeadsProvider } from "@/components/LeadsGate";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
+  // Без приставки «— Тарифы»: бренд совпадает с ключевым словом, и выходило «Тарифы
+  // Билайн — Тарифы». Бренд — в заголовке главной.
   title: {
     default: "Тарифы — интернет-провайдеры по адресу",
-    template: "%s — Тарифы",
+    template: "%s",
   },
   description:
     "Сравните тарифы интернет-провайдеров, доступных по вашему адресу. Подбор и подключение — бесплатно.",

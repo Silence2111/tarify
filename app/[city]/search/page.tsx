@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -11,6 +12,17 @@ type Props = {
   params: Promise<{ city: string }>;
   searchParams: Promise<{ street?: string; house?: string }>;
 };
+
+// Результаты поиска по адресу — в индекс не отдаём: их бесконечно много, и они повторяют
+// страницы города и улицы. Ссылки с них учитываются (follow).
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const { street, house } = await searchParams;
+  const address = [street, house].filter(Boolean).join(", ");
+  return {
+    title: address ? `Тарифы по адресу: ${address}` : "Тарифы по адресу",
+    robots: { index: false, follow: true },
+  };
+}
 
 export default async function SearchPage({ params, searchParams }: Props) {
   const { city } = await params;

@@ -1,3 +1,5 @@
+import { JsonLd } from "./JsonLd";
+
 // Блоки главной: шаги, преимущества, частые вопросы. Общие для главной с поиском по
 // адресу и главной мобильной связи (app/page.tsx).
 
@@ -38,7 +40,7 @@ export function FaqSection({ items }: { items: FaqItem[] }) {
 
   return (
     <section className="mt-12">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
       <h2 className="text-xl font-bold text-slate-900">Частые вопросы</h2>
       <div className="mt-4 space-y-3">
         {items.map((f) => (

@@ -72,6 +72,8 @@ ADMIN_PASSWORD=secret SITE_URL=http://localhost:3000 \
 
 Тарифы грузятся в `/admin/plans` (формат — [data/PLANS.md](data/PLANS.md); шаблоны для домашнего интернета, мобильной связи и счетов — в [data/](data/)).
 
+**Свой сервер в России** (152-ФЗ) — [DEPLOY-RU.md](DEPLOY-RU.md): [deploy/install.sh](deploy/install.sh) ставит Node.js, PostgreSQL, nginx и HTTPS на Ubuntu, сайт обновляется из GitHub сам, новая версия включается, только если собралась и отвечает; управление — командой `tarify` ([deploy/tarify.sh](deploy/tarify.sh)).
+
 **Схема БД на проде** обновляется сама: `npm run build` на Vercel сначала выполняет `prisma db push` ([scripts/db-sync.mjs](scripts/db-sync.mjs)), локально этот шаг пропускается. Нужна переменная `DIRECT_URL` — см. [DEPLOY.md](DEPLOY.md).
 
 **Прод-харднинг** (готово): сессионная cookie админки `secure` под HTTPS (в проде); пароль и сравнение cookie — постоянного времени; пароль владельца лежит в коде только хэшем (PBKDF2, `npm run admin:password`), дефолтного «admin» в проде нет; rate-limit на создание заявок (5/мин на IP) и вход в админку (10/5мин) — in-memory или через Upstash Redis, если заданы `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` (нужно на Vercel: инстансов несколько); у записей покрытия есть `source` и `updatedAt` — повторный импорт освежает актуальность, в `/admin/coverage` видны источники и свежесть. Перед деплоем своей копии: свой пароль (`npm run admin:password` → `ADMIN_PASSWORD_HASH`), выставить `NEXT_PUBLIC_SITE_URL`. Подробно — [DEPLOY.md](DEPLOY.md).
