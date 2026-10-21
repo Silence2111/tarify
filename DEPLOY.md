@@ -89,7 +89,7 @@ git push -u origin main
    | `ADMIN_PASSWORD_HASH` | (необязательно) хэш из `npm run admin:password` | пароль для `/admin`. Без неё действует хэш пароля владельца из [lib/admin-auth.ts](lib/admin-auth.ts); своя копия сайта — свой хэш (п. 6) |
    | `ADMIN_PASSWORD`, `ADMIN_SECRET` | (необязательно) пароль и случайная строка | ещё один пароль для `/admin` — открытым текстом; без `ADMIN_SECRET` вход по нему в проде — ошибка |
    | `NEXT_PUBLIC_SITE_URL` | `https://ваш-домен` | canonical, sitemap, robots |
-   | `NEXT_PUBLIC_DEMO` | `1`, после реальных данных — `0` | жёлтая плашка «Демо-режим» |
+   | `NEXT_PUBLIC_DEMO` | `1`, после реальных данных — `0` | пока не `0`: жёлтая плашка «Демо-режим», сайт закрыт от поисковиков (`X-Robots-Tag: noindex`), заявки не принимаются |
    | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | из Upstash | rate-limit общий для всех инстансов (см. п. 6) |
    | `POSTBACK_TOKEN` | длинная случайная строка | приём статусов конверсий от CPA-сетей (`/api/postback`); без неё приём выключен |
    | `LEAD_WEBHOOK_URL` | (необязательно) адрес приёма заявок CPA-сети или CRM | заявки уходят в сеть сразу, без выгрузки (см. п. 6) |

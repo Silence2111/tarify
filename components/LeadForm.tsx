@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { trackGoal } from "@/lib/analytics";
+import { isDemo } from "@/lib/site";
 import { ConsentCheckbox } from "./ConsentCheckbox";
 
 export function LeadForm({
@@ -38,6 +39,15 @@ export function LeadForm({
     } catch {
       setState("error");
     }
+  }
+
+  // В демо тарифы выдуманы — телефон не просим (и /api/leads его не примет).
+  if (isDemo()) {
+    return (
+      <p className="text-sm text-slate-500">
+        Заявки откроются после запуска: сейчас тарифы примерные.
+      </p>
+    );
   }
 
   if (state === "done") {

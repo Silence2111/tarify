@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { trackGoal } from "@/lib/analytics";
+import { isDemo } from "@/lib/site";
 import { ConsentCheckbox } from "./ConsentCheckbox";
 
 // Заявка «интернет и связь в офис». Провайдеров по зданию подбирают при звонке,
@@ -38,6 +39,15 @@ export function BusinessLeadForm() {
       setError("Сетевая ошибка, попробуйте ещё раз");
       setState("error");
     }
+  }
+
+  // В демо заявки не принимаем (и /api/leads их отклонит): подключать пока некуда.
+  if (isDemo()) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+        Заявки откроются после запуска: сейчас сайт работает в демо-режиме.
+      </div>
+    );
   }
 
   if (state === "done") {

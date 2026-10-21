@@ -2,9 +2,19 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { deliverLead } from "@/lib/lead-delivery";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { isDemo } from "@/lib/site";
 
 // Приём заявки на подключение — это и есть «деньги» воронки.
 export async function POST(req: NextRequest) {
+  // Демо-режим: тарифы и покрытие примерные — подключать нечего, а телефон человека
+  // остался бы в базе. Формы в демо не показываются; отказ — и для прямых запросов.
+  if (isDemo()) {
+    return NextResponse.json(
+      { error: "Сайт работает в демо-режиме: заявки пока не принимаем" },
+      { status: 503 },
+    );
+  }
+
   // Защита от спама форм: не больше 5 заявок с одного IP в минуту.
   const rl = await rateLimit(`lead:${clientIp(req)}`, 5, 60_000);
   if (!rl.ok) {
