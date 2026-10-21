@@ -63,6 +63,21 @@ export const MOBILE_COLLECTIONS: Collection[] = [
 /** Меньше этого — страница подборки не индексируется: пустые страницы вредят сайту. */
 export const MIN_INDEXABLE = 3;
 
+/** Подборка у одного оператора: «Тарифы МТС с безлимитным интернетом», «Самые дешёвые тарифы МТС». */
+export function withOperator(title: string, operator: string): string {
+  const head = "Тарифы ";
+  return title.startsWith(head) ? `${head}${operator} ${title.slice(head.length)}` : `${title} ${operator}`;
+}
+
+/**
+ * Подборка у одного оператора индексируется, если в ней не меньше MIN_INDEXABLE тарифов и
+ * это не все тарифы оператора: иначе страница повторяет страницу оператора — у многих
+ * все тарифы с eSIM, а «самые дешёвые» при десяти тарифах — это они все.
+ */
+export function operatorCollectionIndexable(selected: number, total: number): boolean {
+  return selected >= MIN_INDEXABLE && selected < total;
+}
+
 export function findCollection(slug: string): Collection | undefined {
   return MOBILE_COLLECTIONS.find((c) => c.slug === slug);
 }

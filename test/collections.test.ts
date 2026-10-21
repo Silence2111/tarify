@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { collectionPlans, findCollection, MOBILE_COLLECTIONS, priceStats } from "@/lib/collections";
+import {
+  collectionPlans,
+  findCollection,
+  MOBILE_COLLECTIONS,
+  operatorCollectionIndexable,
+  priceStats,
+  withOperator,
+} from "@/lib/collections";
 import type { CatalogPlan } from "@/lib/types";
 
 /**
@@ -77,5 +84,22 @@ describe("свои цифры страницы", () => {
   });
   it("пусто — null", () => {
     expect(priceStats([])).toBeNull();
+  });
+});
+
+describe("подборка у оператора", () => {
+  it("название с оператором для всех подборок читается по-русски", () => {
+    const titles = MOBILE_COLLECTIONS.map((c) => withOperator(c.title, "МТС"));
+    expect(titles).toContain("Тарифы МТС с безлимитным интернетом");
+    expect(titles).toContain("Тарифы МТС без абонентской платы");
+    expect(titles).toContain("Самые дешёвые тарифы МТС");
+    for (const t of titles) expect(t).toMatch(/МТС/);
+  });
+
+  it("в индекс — 3+ тарифа и не все тарифы оператора", () => {
+    expect(operatorCollectionIndexable(2, 10)).toBe(false);
+    expect(operatorCollectionIndexable(3, 10)).toBe(true);
+    // Все тарифы оператора с eSIM — страница повторила бы страницу оператора.
+    expect(operatorCollectionIndexable(8, 8)).toBe(false);
   });
 });
