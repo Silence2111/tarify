@@ -189,6 +189,8 @@ cmd_update() {
   as_app git -C "$REPO" fetch --quiet origin "$BRANCH" ||
     die "не удалось получить код из GitHub — проверьте ключ доступа: tarify status"
   sha=$(as_app git -C "$REPO" rev-parse "origin/$BRANCH")
+  # Рабочая копия — тоже свежая: повторный запуск установщика возьмёт новую версию.
+  as_app git -C "$REPO" reset --quiet --hard "origin/$BRANCH"
   if [ "$force" != --force ]; then
     if [ "$sha" = "$(current_rev)" ]; then
       say "Уже последняя версия: ${sha:0:7}."
