@@ -1,10 +1,15 @@
 import type { MetadataRoute } from "next";
 import { getCatalogPlans, getMobileOperatorRegions, getMobileRegionContext } from "@/lib/catalog";
 import { pickRegion } from "@/lib/catalog-filter";
-import { collectionPlans, MIN_INDEXABLE, MOBILE_COLLECTIONS } from "@/lib/collections";
+import {
+  collectionPlans,
+  MIN_INDEXABLE,
+  MOBILE_COLLECTIONS,
+  operatorCollectionIndexable,
+} from "@/lib/collections";
 import { prisma } from "@/lib/db";
 import { FEED_MIN_INDEXABLE, getPriceChanges } from "@/lib/price-history";
-import { regionSlug } from "@/lib/regions";
+import { catalogPath, regionSlug } from "@/lib/regions";
 import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +73,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         });
       }
     }
+  }
+  // Подборки у оператора — только индексируемые: 3+ тарифа и не все тарифы оператора.
+  // Тарифы — тем же запросом, что и на странице: регион оператора, его цены поверх единых.
+  const operatorCollections = await Promise.all(
+    operators.flatMap((o) => {
+      const own = operatorRegions.get(o.slug) ?? [];
+      const ownDefault = pickRegion(undefined, own);
+      return [ownDefault, ...own.filter((r) => r !== ownDefault)].map(async (r) => {
+        const all = await getCatalogPlans("MOBILE", { region: r, providerSlug: o.slug });
+        return MOBILE_COLLECTIONS.filter((c) =>
+          operatorCollectionIndexable(collectionPlans(c, all).length, all.length),
+        ).map((c) => catalogPath(`/mobile/${o.slug}/podborka/${c.slug}`, r, ownDefault));
+      });
+    }),
+  );
+  for (const path of operatorCollections.flat()) {
+    urls.push({ url: `${base}${path}`, changeFrequency: "weekly", priority: 0.5 });
   }
   // Лента изменений цен — как и подборки, только непустая (иначе она noindex).
   if ((await getPriceChanges({ take: FEED_MIN_INDEXABLE })).length >= FEED_MIN_INDEXABLE) {
