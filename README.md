@@ -13,12 +13,13 @@
 | Адресный слой | [lib/dadata.ts](lib/dadata.ts) | Автокомплит улиц через DaData (ФИАС/ГАР) при `DADATA_API_KEY`, иначе локальная база |
 | Подбор по покрытию | [lib/coverage.ts](lib/coverage.ts) | Главный запрос: какие провайдеры доступны по адресу |
 | Сравнение + фильтры | [components/ResultsList.tsx](components/ResultsList.tsx) | Фильтр по цене/скорости/ТВ, сортировка |
-| Заявка | [components/LeadForm.tsx](components/LeadForm.tsx) → [app/api/leads/route.ts](app/api/leads/route.ts) | Захват лида |
+| Заявка | [components/LeadForm.tsx](components/LeadForm.tsx) → [app/api/leads/route.ts](app/api/leads/route.ts) | Захват лида. Открыт, только когда демо-режим выключен и заданы реквизиты оператора и получатели ([lib/operator.ts](lib/operator.ts)); иначе формы скрыты, а API отказывает |
 | Гео-SEO | [app/[city]/page.tsx](app/[city]/page.tsx), [app/[city]/[street]/page.tsx](app/[city]/[street]/page.tsx), [app/sitemap.ts](app/sitemap.ts) | Страницы под город и улицу — органический трафик |
 | Заявки (админка) | [app/admin/leads/page.tsx](app/admin/leads/page.tsx) | Карточки для обзвона и с телефона: звонок в одно касание, статус, заметка оператора; воронка — она же фильтр, аппрув, выручка по `payoutRub`, выгрузка CSV для CPA-сети |
 | Покрытие (админка) | [app/admin/coverage/page.tsx](app/admin/coverage/page.tsx) + [lib/coverage-import.ts](lib/coverage-import.ts) | Статистика матрицы дом×провайдер + импорт CSV-фидов ([data/COVERAGE.md](data/COVERAGE.md)) |
 | Тарифы (админка) | [app/admin/plans/page.tsx](app/admin/plans/page.tsx) + [lib/plans-import.ts](lib/plans-import.ts) | Все тарифы, где провайдер виден на сайте и почему нет, импорт прайса CSV ([data/PLANS.md](data/PLANS.md)) |
 | Мобильная связь | [app/mobile/](app/mobile/) + [components/MobileCatalog.tsx](components/MobileCatalog.tsx) + [lib/catalog.ts](lib/catalog.ts) | Каталог тарифов операторов с ценами по регионам, фильтры (ГБ, минуты, eSIM), «Оформить» по партнёрской ссылке |
+| Главная без покрытия | [components/MobileHome.tsx](components/MobileHome.tsx) + [lib/home.ts](lib/home.ts) | Пока нет городов или тарифов домашнего интернета (запуск с мобильной связью), главная ведёт в мобильную связь, а пункта «Интернет по адресу» в шапке нет |
 | Для бизнеса | [app/business/page.tsx](app/business/page.tsx) | Заявка «интернет в офис» и каталог расчётных счетов банков |
 | Согласие на ПДн | [app/soglasie/page.tsx](app/soglasie/page.tsx) + [components/ConsentCheckbox.tsx](components/ConsentCheckbox.tsx) | Отдельный документ согласия (требование с 01.09.2025) и галочка во всех формах |
 | Страницы регионов | [lib/regions.ts](lib/regions.ts) + [app/mobile/[slug]/](app/mobile/[slug]/) | Регион в адресе: `/mobile/tatarstan`, `/mobile/mts/tatarstan`, `/mobile/podborka/s-esim/tatarstan` — отдельные страницы под запросы «тарифы МТС Татарстан». У оператора — только регионы, где у него свои цены; в `sitemap.xml` — все такие страницы |

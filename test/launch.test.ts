@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { launchChecks, launchProgress, type LaunchFacts } from "@/lib/launch";
-import { dataRecipients, missingOperatorFields, operatorDetails } from "@/lib/operator";
+import { dataRecipients, leadsState, missingOperatorFields, operatorDetails } from "@/lib/operator";
 
 /**
  * «Запуск» говорит, можно ли принимать настоящие заявки. Показать «готово» там, где
@@ -96,5 +96,14 @@ describe("реквизиты оператора", () => {
     expect(operatorDetails({ OPERATOR_INN: "1" })).toBeNull();
     expect(dataRecipients({ PD_RECIPIENTS: " ООО «Пампаду» " })).toBe("ООО «Пампаду»");
     expect(dataRecipients({})).toBeNull();
+  });
+
+  it("заявки — только без демо и со всеми реквизитами и получателями", () => {
+    expect(leadsState(EMPTY.env)).toBe("demo");
+    expect(leadsState({ ...READY.env, NEXT_PUBLIC_DEMO: "1" })).toBe("demo");
+    expect(leadsState(READY.env)).toBe("open");
+    // демо выключили раньше, чем вписали реквизиты: согласие было бы с «[заполнить]»
+    expect(leadsState({ ...READY.env, OPERATOR_INN: "" })).toBe("no-operator");
+    expect(leadsState({ ...READY.env, PD_RECIPIENTS: " " })).toBe("no-operator");
   });
 });

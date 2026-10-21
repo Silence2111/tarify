@@ -42,3 +42,18 @@ export function missingOperatorFields(env: Env = process.env): string[] {
 export function dataRecipients(env: Env = process.env): string | null {
   return value(env, "PD_RECIPIENTS");
 }
+
+/**
+ * Принимаем ли заявки с телефоном. «demo» — данные примерные (NEXT_PUBLIC_DEMO не 0),
+ * «no-operator» — не заданы реквизиты оператора или получатели: согласие на обработку
+ * данных не называло бы, кому человек его даёт. Пока не «open», формы заявок не
+ * показываются, а /api/leads отказывает. Партнёрские ссылки «Оформить» работают всегда:
+ * телефон по ним оставляют на сайте оператора, не у нас.
+ */
+export type LeadsState = "open" | "demo" | "no-operator";
+
+export function leadsState(env: Env = process.env): LeadsState {
+  if (env.NEXT_PUBLIC_DEMO !== "0") return "demo";
+  if (missingOperatorFields(env).length > 0 || !dataRecipients(env)) return "no-operator";
+  return "open";
+}

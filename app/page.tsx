@@ -2,17 +2,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { AddressSearch } from "@/components/AddressSearch";
-import { JsonLd } from "@/components/JsonLd";
+import { FaqSection, Feature, Step, type FaqItem } from "@/components/HomeBlocks";
+import { MOBILE_HOME_METADATA, MobileHome } from "@/components/MobileHome";
 import { plural } from "@/lib/format";
+import { hasAddressSearch } from "@/lib/home";
 import { HOME_PLAN_TYPES } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-// Заголовок и описание — из корневого layout; canonical — чтобы адреса с utm-метками
-// не считались отдельными страницами.
-export const metadata: Metadata = { alternates: { canonical: "/" } };
+// Заголовок и описание — из корневого layout, а без городов и тарифов домашнего
+// интернета главная — про мобильную связь, со своими. canonical — чтобы адреса с
+// utm-метками не считались отдельными страницами.
+export async function generateMetadata(): Promise<Metadata> {
+  const own = (await hasAddressSearch()) ? {} : MOBILE_HOME_METADATA;
+  return { ...own, alternates: { canonical: "/" } };
+}
 
-const FAQ = [
+const FAQ: FaqItem[] = [
   {
     q: "Почему подбор бесплатный?",
     a: "Мы получаем вознаграждение от провайдера за подключённого абонента. Для вас цена тарифа — та же, что напрямую у провайдера, без наценки.",
@@ -28,6 +34,8 @@ const FAQ = [
 ];
 
 export default async function HomePage() {
+  if (!(await hasAddressSearch())) return <MobileHome />;
+
   const cities = await prisma.city.findMany({
     orderBy: { name: "asc" },
     select: { id: true, slug: true, name: true },
@@ -40,20 +48,8 @@ export default async function HomePage() {
     prisma.building.count(),
   ]);
 
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQ.map((f) => ({
-      "@type": "Question",
-      name: f.q,
-      acceptedAnswer: { "@type": "Answer", text: f.a },
-    })),
-  };
-
   return (
     <div>
-      <JsonLd data={faqJsonLd} />
-
       {/* Hero */}
       <section className="rounded-2xl bg-gradient-to-br from-brand to-brand-dark px-6 py-12 text-white sm:px-10 sm:py-14">
         <h1 className="max-w-2xl text-3xl font-bold leading-tight sm:text-4xl">
@@ -138,42 +134,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* FAQ */}
-      <section className="mt-12">
-        <h2 className="text-xl font-bold text-slate-900">Частые вопросы</h2>
-        <div className="mt-4 space-y-3">
-          {FAQ.map((f) => (
-            <details key={f.q} className="group rounded-xl border border-slate-200 bg-white p-4">
-              <summary className="cursor-pointer list-none font-medium text-slate-800 marker:hidden">
-                <span className="text-brand">＋ </span>
-                {f.q}
-              </summary>
-              <p className="mt-2 text-sm text-slate-600">{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Step({ n, title, text }: { n: string; title: string; text: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-sm font-bold text-white">
-        {n}
-      </div>
-      <div className="mt-3 font-semibold text-slate-800">{title}</div>
-      <div className="mt-1 text-sm text-slate-500">{text}</div>
-    </div>
-  );
-}
-
-function Feature({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="font-semibold text-slate-800">{title}</div>
-      <div className="mt-1 text-sm text-slate-500">{text}</div>
+      <FaqSection items={FAQ} />
     </div>
   );
 }
