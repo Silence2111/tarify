@@ -151,14 +151,19 @@ export function launchChecks(f: LaunchFacts): LaunchGroup[] {
           hint:
             missingOperator.length === 0
               ? "Видны в /soglasie и /privacy."
-              : `Не заданы: ${missingOperator.join(", ")} (переменные OPERATOR_* в Vercel).`,
+              : `Не заданы: ${missingOperator.join(", ")} (переменные OPERATOR_* в Vercel). Пока их нет, заявки не принимаются: формы скрыты, «Оформить» по партнёрским ссылкам работает.`,
         },
         {
           title: "Кому передаются заявки (PD_RECIPIENTS)",
           status: has(env, "PD_RECIPIENTS") ? "ok" : "todo",
           hint: has(env, "PD_RECIPIENTS")
             ? env.PD_RECIPIENTS!.trim()
-            : "Сети и CRM, куда уходят заявки, — их нужно назвать в согласии.",
+            : "Сети и CRM, куда уходят заявки, — их нужно назвать в согласии. Без них заявки не принимаются.",
+        },
+        {
+          title: "База с заявками — в России",
+          status: "manual",
+          hint: "152-ФЗ: данные граждан РФ записывают в базу в России, а Neon — за рубежом. Перенесите базу до того, как вписывать реквизиты: с ними откроется приём заявок.",
         },
         {
           title: "Уведомление Роскомнадзора об обработке персональных данных",

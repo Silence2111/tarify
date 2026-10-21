@@ -13,7 +13,7 @@
 | Адресный слой | [lib/dadata.ts](lib/dadata.ts) | Автокомплит улиц через DaData (ФИАС/ГАР) при `DADATA_API_KEY`, иначе локальная база |
 | Подбор по покрытию | [lib/coverage.ts](lib/coverage.ts) | Главный запрос: какие провайдеры доступны по адресу |
 | Сравнение + фильтры | [components/ResultsList.tsx](components/ResultsList.tsx) | Фильтр по цене/скорости/ТВ, сортировка |
-| Заявка | [components/LeadForm.tsx](components/LeadForm.tsx) → [app/api/leads/route.ts](app/api/leads/route.ts) | Захват лида |
+| Заявка | [components/LeadForm.tsx](components/LeadForm.tsx) → [app/api/leads/route.ts](app/api/leads/route.ts) | Захват лида. Открыт, только когда демо-режим выключен и заданы реквизиты оператора и получатели ([lib/operator.ts](lib/operator.ts)); иначе формы скрыты, а API отказывает |
 | Гео-SEO | [app/[city]/page.tsx](app/[city]/page.tsx), [app/[city]/[street]/page.tsx](app/[city]/[street]/page.tsx), [app/sitemap.ts](app/sitemap.ts) | Страницы под город и улицу — органический трафик |
 | Заявки (админка) | [app/admin/leads/page.tsx](app/admin/leads/page.tsx) | Карточки для обзвона и с телефона: звонок в одно касание, статус, заметка оператора; воронка — она же фильтр, аппрув, выручка по `payoutRub`, выгрузка CSV для CPA-сети |
 | Покрытие (админка) | [app/admin/coverage/page.tsx](app/admin/coverage/page.tsx) + [lib/coverage-import.ts](lib/coverage-import.ts) | Статистика матрицы дом×провайдер + импорт CSV-фидов ([data/COVERAGE.md](data/COVERAGE.md)) |

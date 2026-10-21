@@ -71,7 +71,26 @@ describe("после запуска (NEXT_PUBLIC_DEMO=0)", () => {
     vi.stubEnv("NEXT_PUBLIC_DEMO", "0");
   });
 
-  it("заявку принимаем и отправляем дальше", async () => {
+  // Реквизиты оператора и получатели данных — без них согласие на обработку
+  // не называет, кому его дают (lib/operator.ts).
+  const stubOperator = () => {
+    vi.stubEnv("OPERATOR_NAME", "ООО «Тарифы»");
+    vi.stubEnv("OPERATOR_INN", "1650000000");
+    vi.stubEnv("OPERATOR_OGRN", "1231600000000");
+    vi.stubEnv("OPERATOR_ADDRESS", "Казань, ул. Баумана, 1");
+    vi.stubEnv("OPERATOR_EMAIL", "pd@tarify.ru");
+    vi.stubEnv("PD_RECIPIENTS", "ООО «Пампаду»");
+  };
+
+  it("без реквизитов оператора — заявку не принимаем, в базу не пишем", async () => {
+    const res = await postLead();
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toMatch(/не открыт/);
+    expect(db.lead.create).not.toHaveBeenCalled();
+  });
+
+  it("с реквизитами и получателями — принимаем и отправляем дальше", async () => {
+    stubOperator();
     const res = await postLead();
     expect(res.status).toBe(201);
     expect(db.lead.create).toHaveBeenCalledOnce();

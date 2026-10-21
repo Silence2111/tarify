@@ -3,8 +3,10 @@ import Link from "next/link";
 import "./globals.css";
 import { siteUrl } from "@/lib/site";
 import { hasAddressSearch } from "@/lib/home";
+import { leadsState } from "@/lib/operator";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Analytics } from "@/components/Analytics";
+import { LeadsProvider } from "@/components/LeadsGate";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -64,7 +66,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </nav>
           </div>
         </header>
-        <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+        <main className="mx-auto max-w-5xl px-4 py-8">
+          <LeadsProvider state={leadsState()}>{children}</LeadsProvider>
+        </main>
         <footer className="mt-16 border-t border-slate-200 bg-white">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-xs text-slate-400">
             <span>

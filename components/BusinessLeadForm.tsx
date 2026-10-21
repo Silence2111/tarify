@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { trackGoal } from "@/lib/analytics";
-import { isDemo } from "@/lib/site";
 import { ConsentCheckbox } from "./ConsentCheckbox";
+import { useLeadsState } from "./LeadsGate";
 
 // Заявка «интернет и связь в офис». Провайдеров по зданию подбирают при звонке,
 // передают оператору через его B2B-партнёрку (МТС Агенты, МегаФон и т. п.).
@@ -15,6 +15,7 @@ export function BusinessLeadForm() {
   const [consent, setConsent] = useState(false);
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [error, setError] = useState("");
+  const leads = useLeadsState();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,11 +42,13 @@ export function BusinessLeadForm() {
     }
   }
 
-  // В демо заявки не принимаем (и /api/leads их отклонит): подключать пока некуда.
-  if (isDemo()) {
+  // Приём заявок закрыт (lib/operator.ts) — формы нет, /api/leads заявку не примет.
+  if (leads !== "open") {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-        Заявки откроются после запуска: сейчас сайт работает в демо-режиме.
+        {leads === "demo"
+          ? "Заявки откроются после запуска: сейчас сайт работает в демо-режиме."
+          : "Заявки на подключение офиса скоро откроются."}
       </div>
     );
   }

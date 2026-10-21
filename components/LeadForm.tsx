@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { trackGoal } from "@/lib/analytics";
-import { isDemo } from "@/lib/site";
 import { ConsentCheckbox } from "./ConsentCheckbox";
+import { useLeadsState } from "./LeadsGate";
 
 export function LeadForm({
   planId,
@@ -23,6 +23,7 @@ export function LeadForm({
   const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const leads = useLeadsState();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,11 +42,13 @@ export function LeadForm({
     }
   }
 
-  // В демо тарифы выдуманы — телефон не просим (и /api/leads его не примет).
-  if (isDemo()) {
+  // Приём заявок закрыт (lib/operator.ts) — телефон не просим, /api/leads его не примет.
+  if (leads !== "open") {
     return (
       <p className="text-sm text-slate-500">
-        Заявки откроются после запуска: сейчас тарифы примерные.
+        {leads === "demo"
+          ? "Заявки откроются после запуска: сейчас тарифы примерные."
+          : "Заявки на подключение скоро откроются."}
       </p>
     );
   }
