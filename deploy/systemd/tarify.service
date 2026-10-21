@@ -1,0 +1,22 @@
+[Unit]
+Description=Сайт «Тарифы» (Next.js)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+User=tarify
+Group=tarify
+# current — ссылка на работающую версию; tarify update переключает её и перезапускает сервис.
+WorkingDirectory=/opt/tarify/current
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+# Только на 127.0.0.1: снаружи сайт доступен через nginx.
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -p 3000 -H 127.0.0.1
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
